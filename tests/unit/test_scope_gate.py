@@ -3,6 +3,7 @@ from datetime import UTC, datetime
 from scbounty.config.models import ScopeSnapshot
 from scbounty.config.scope_gate import (
     KNOWN_ARBITRUM_IMPACTS,
+    ScopeGate,
     compare_live_scope,
 )
 from scbounty.utils.hashing import sha256_text
@@ -76,3 +77,18 @@ def test_scope_comparison_counts_duplicate_rows() -> None:
 
     assert diff.passed is False
     assert diff.observed_asset_count == 3
+
+
+def test_educational_fixture_scope_attestation_is_offline_and_marked_local(tmp_path) -> None:
+    from scbounty.config.loader import load_target
+
+    target = load_target("toy_bridge")
+    output = tmp_path / "toy-scope-attestation.json"
+
+    attestation = ScopeGate().verify(target, output_path=output)
+
+    assert output.is_file()
+    assert attestation.target_id == "toy_bridge"
+    assert attestation.diff.passed is True
+    assert attestation.local_static_only is True
+    assert attestation.live_content_hash == sha256_text("educational-fixture-scope")

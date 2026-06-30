@@ -39,3 +39,16 @@ def test_source_fetcher_records_pinned_selected_content(tmp_path: Path, monkeypa
     assert manifest.artifacts[0].commit_sha == "a" * 40
     assert manifest.artifacts[0].selected_paths == ["contracts/A.sol"]
     assert len(manifest.artifacts[0].selected_content_hash) == 64
+
+
+def test_source_fetcher_records_local_fixture_without_git_clone() -> None:
+    target = load_target("toy_bridge")
+
+    manifest = SourceFetcher().fetch(target)
+
+    artifact = manifest.artifacts[0]
+    assert manifest.target_id == "toy_bridge"
+    assert artifact.repository == "scbounty/toy_bridge_fixture"
+    assert artifact.commit_sha.startswith("local-fixture-")
+    assert artifact.selected_paths == ["src/ToyBridge.sol", "src/SafeToyBridge.sol"]
+    assert len(artifact.selected_content_hash) == 64

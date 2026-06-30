@@ -33,3 +33,16 @@ def test_immunefi_report_refuses_unconfirmed_finding() -> None:
 
     with pytest.raises(ReportNotShareableError):
         render_immunefi(target, [_finding()])
+
+
+def test_immunefi_fixture_draft_is_explicitly_not_submittable() -> None:
+    target = load_target("toy_bridge")
+    finding = _finding()
+    finding.scope_status = "in_scope"
+    finding.triage_status = "confirmed"
+    finding.safe_poc_status = "local_fixture"
+
+    draft = render_immunefi(target, [finding])
+
+    assert "EDUCATIONAL FIXTURE ONLY / DO NOT SUBMIT" in draft
+    assert "not a real bounty finding" in draft
