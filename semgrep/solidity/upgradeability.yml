@@ -1,0 +1,10 @@
+rules:
+  - id: scbounty.solidity.initializer-review
+    languages: [generic]
+    severity: WARNING
+    message: Initializer-like entry point requires one-time guard review.
+    patterns:
+      - pattern-regex: '(?s)function\s+initialize\w*\s*\([^)]*\)[^{;]*\{'
+      - pattern-not-regex: '(?s)function\s+initialize\w*\s*\([^)]*\)[^{;]*(?:initializer|reinitializer)[^{;]*\{'
+    paths:
+      include: ["**/*.sol"]

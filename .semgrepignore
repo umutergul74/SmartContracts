@@ -1,0 +1,7 @@
+.git/
+.venv/
+.uv-cache/
+artifacts/
+out/
+node_modules/
+

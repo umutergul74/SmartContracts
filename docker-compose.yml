@@ -1,0 +1,11 @@
+services:
+  scbounty:
+    build:
+      context: .
+    read_only: true
+    network_mode: none
+    volumes:
+      - ./targets:/workspace/targets:ro
+      - ./artifacts:/workspace/artifacts
+    command: ["env", "doctor"]
+

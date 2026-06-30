@@ -1,0 +1,37 @@
+# Architecture
+
+## Trust boundaries
+
+Target configuration and reviewed snapshots are trusted repository inputs. Live web pages,
+downloaded source, RPC responses, analyzer output, and generated reports are untrusted data.
+
+## Pipeline
+
+1. Pydantic rejects incomplete or unsafe target configuration.
+2. The scope gate makes one live request and compares complete normalized fingerprints.
+3. The source layer shallow-clones reviewed repositories and records immutable commit IDs.
+4. Build/analyzer adapters execute fixed argument lists through a secrets-stripping runner.
+5. Detectors emit low-severity, possibly-in-scope research signals.
+6. Deduplication combines evidence from equivalent signals.
+7. Human triage records scope and local reproduction decisions.
+8. Report gates prevent unconfirmed disclosure drafts.
+
+## Artifacts
+
+Each analysis run receives `artifacts/runs/<run-id>/` containing:
+
+- `run.json`
+- `scope-attestation.json`
+- `source-manifest.json`
+- `findings.json`
+- optional `triage/` records
+- optional `reports/`
+
+Source checkouts live under `.scbounty/cache/sources/`. Both trees are ignored by Git.
+
+## Extension points
+
+Analyzers implement `AnalyzerAdapter`. Detectors implement a source-to-findings protocol. New
+targets add typed YAML and a reviewed scope snapshot. All extension points return normalized
+models and must fail without taking down unrelated pipeline stages.
+

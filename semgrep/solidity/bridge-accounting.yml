@@ -1,0 +1,10 @@
+rules:
+  - id: scbounty.solidity.bridge-accounting-review
+    languages: [generic]
+    severity: WARNING
+    message: Token movement followed by minting requires escrow/supply invariant review.
+    patterns:
+      - pattern-regex: '(?s)function\s+\w+\s*\([^)]*\)[^{;]*\{[^}]*transferFrom[^}]*bridgeMint'
+      - pattern-not-regex: '(?s)function\s+\w+\s*\([^)]*\)[^{;]*\{[^}]*escrow[^}]*bridgeMint'
+    paths:
+      include: ["**/*.sol"]

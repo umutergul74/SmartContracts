@@ -1,0 +1,22 @@
+{
+  "schema_version": "1",
+  "target_id": "toy_bridge",
+  "captured_at_utc": "2026-06-30T00:00:00Z",
+  "source_url": "https://example.invalid/scbounty/toy-bridge/scope",
+  "program_last_updated": "2026-06-30 educational fixture",
+  "asset_count": 2,
+  "asset_urls_sha256": "18401567e9dd6b7c9210d554ecb1c60df5f5df10148eb47dfdc6e270549dbdad",
+  "impact_count": 4,
+  "impacts_sha256": "ca058feb74acfaca4b91ac7a55e4f572257eb5eb050ad18ddd709510444b45fd",
+  "seed_assets": [
+    "ToyBridge.sol",
+    "SafeToyBridge.sol"
+  ],
+  "repositories": [
+    "https://example.invalid/scbounty/toy-bridge-fixture"
+  ],
+  "prohibited_activity_markers": [
+    "educational fixture only",
+    "no live network testing"
+  ]
+}

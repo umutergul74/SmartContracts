@@ -1,0 +1,50 @@
+target_id: toy_bridge
+name: Toy Bridge Educational Fixture
+status: training
+risk_profile: "local educational bridge fixture with intentional vulnerabilities"
+authorization:
+  type: educational_fixture
+  platform: local
+  program_name: SCBounty Toy Bridge Fixture
+  program_url: https://example.invalid/scbounty/toy-bridge
+  scope_url: https://example.invalid/scbounty/toy-bridge/scope
+  information_url: https://example.invalid/scbounty/toy-bridge/information
+  last_manually_verified_utc: 2026-06-30
+  must_reverify_before_run: false
+  poc_required: true
+  kyc_required_for_payout: false
+disclosure:
+  channel: local training only
+  submission_url: https://example.invalid/scbounty/toy-bridge/no-submission
+  public_disclosure_requires_permission: true
+allowed_testing:
+  - local_foundry_unit_tests
+  - local_foundry_fuzz_tests
+  - local_foundry_invariant_tests
+  - local_static_analysis
+prohibited_testing:
+  - mainnet_transactions
+  - public_testnet_transactions
+  - live_exploit_attempts
+  - private_key_use
+  - automated_submission
+networks: {}
+source_repositories:
+  - name: scbounty/toy_bridge_fixture
+    url: https://example.invalid/scbounty/toy-bridge-fixture
+    purpose: Intentional local-only vulnerable bridge fixture.
+    default_branch: local
+    local_path: tests/fixtures/toy_bridge
+    analysis_paths:
+      - src/ToyBridge.sol
+      - src/SafeToyBridge.sol
+seed_in_scope_assets_from_immunefi_first_page: []
+seed_dao_addresses: {}
+impact_categories_to_prioritize:
+  educational:
+    - unauthorized_mint
+    - missing_router_check
+    - gateway_mapping_mismatch
+    - escrow_supply_mismatch
+scope_snapshot_file: scope_snapshot.json
+local_only_poc: true

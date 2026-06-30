@@ -1,0 +1,11 @@
+rules:
+  - id: scbounty.solidity.bridge-mint-entry-point
+    languages: [generic]
+    severity: WARNING
+    message: Bridge supply mutation requires manual gateway authorization review.
+    patterns:
+      - pattern-regex: '(?s)function\s+bridge(?:Mint|Burn)\s*\([^)]*\)[^{;]*\{[^}]*\}'
+      - pattern-not-regex: '(?s)function\s+bridge(?:Mint|Burn)\s*\([^)]*\)[^{;]*(?:onlyGateway|onlyBridge|onlyRole)[^{;]*\{[^}]*\}'
+      - pattern-not-regex: '(?s)function\s+bridge(?:Mint|Burn)\s*\([^)]*\)[^{;]*\{[^}]*require\s*\(\s*msg\.sender[^}]*\}'
+    paths:
+      include: ["**/*.sol"]

@@ -1,0 +1,19 @@
+// SPDX-License-Identifier: Apache-2.0
+pragma solidity ^0.8.24;
+
+/// @notice Generated local-only harness for {{ target_id }} research.
+/// @dev Connect this skeleton only to a reviewed local fixture or read-only local fork.
+contract {{ target_id | title }}GatewayInvariant {
+    uint256 internal escrowed;
+    uint256 internal outstanding;
+
+    function invariant_escrowCoversOutstandingSupply() public view {
+        require(escrowed >= outstanding, "bridge accounting invariant violated");
+    }
+
+    function invariant_noUntrustedMintPath() public pure {
+        // Replace with a local call matrix after manual role and counterpart mapping.
+        require(true, "placeholder");
+    }
+}
+

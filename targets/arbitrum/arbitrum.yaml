@@ -1,0 +1,133 @@
+target_id: arbitrum
+name: Arbitrum / ARB
+status: pilot
+risk_profile: critical_infrastructure_l2
+
+authorization:
+  type: bug_bounty
+  platform: Immunefi
+  program_name: Arbitrum
+  program_url: https://immunefi.com/bug-bounty/arbitrum/
+  scope_url: https://immunefi.com/bug-bounty/arbitrum/scope/
+  information_url: https://immunefi.com/bug-bounty/arbitrum/information/
+  last_manually_verified_utc: "2026-06-30"
+  must_reverify_before_run: true
+  poc_required: true
+  kyc_required_for_payout: true
+
+disclosure:
+  channel: Immunefi submission portal
+  submission_url: https://bugs.immunefi.com/dashboard/new-submission
+  public_disclosure_requires_permission: true
+
+allowed_testing:
+  - static_analysis
+  - source_review
+  - local_unit_tests
+  - local_fork_read_only_simulation
+  - invariant_testing_against_local_fork
+  - fuzzing_against_local_fixtures
+  - symbolic_testing_against_local_fixtures
+
+prohibited_testing:
+  - mainnet_transactions
+  - public_testnet_transactions
+  - live_exploit_attempts
+  - destructive_dos
+  - significant_traffic_generation
+  - third_party_oracle_testing_without_scope
+  - offchain_infrastructure_testing_without_scope
+  - automated_bounty_submission
+
+networks:
+  ethereum_l1:
+    chain_id: 1
+    role: parent_chain
+    rpc_env_var: ETHEREUM_RPC_URL
+    read_only: true
+  arbitrum_one:
+    chain_id: 42161
+    role: primary_l2
+    rpc_env_var: ARBITRUM_ONE_RPC_URL
+    read_only: true
+  arbitrum_nova:
+    chain_id: 42170
+    role: anytrust_l2
+    rpc_env_var: ARBITRUM_NOVA_RPC_URL
+    read_only: true
+  arbitrum_sepolia:
+    chain_id: 421614
+    role: testnet_reference_only
+    rpc_env_var: ARBITRUM_SEPOLIA_RPC_URL
+    read_only: true
+
+source_repositories:
+  - name: OffchainLabs/token-bridge-contracts
+    url: https://github.com/OffchainLabs/token-bridge-contracts
+    purpose: canonical_token_bridge_contracts
+    default_branch: main
+    analysis_paths:
+      - contracts/tokenbridge/arbitrum/IArbToken.sol
+      - contracts/tokenbridge/arbitrum/L2ArbitrumMessenger.sol
+      - contracts/tokenbridge/arbitrum/StandardArbERC20.sol
+      - contracts/tokenbridge/arbitrum/gateway/L2ArbitrumGateway.sol
+      - contracts/tokenbridge/arbitrum/gateway/L2CustomGateway.sol
+      - contracts/tokenbridge/arbitrum/gateway/L2ERC20Gateway.sol
+      - contracts/tokenbridge/arbitrum/gateway/L2GatewayRouter.sol
+      - contracts/tokenbridge/arbitrum/gateway/L2WethGateway.sol
+      - contracts/tokenbridge/ethereum/ICustomToken.sol
+      - contracts/tokenbridge/ethereum/L1ArbitrumMessenger.sol
+      - contracts/tokenbridge/ethereum/gateway/L1ArbitrumExtendedGateway.sol
+      - contracts/tokenbridge/ethereum/gateway/L1ArbitrumGateway.sol
+  - name: OffchainLabs/nitro-contracts
+    url: https://github.com/OffchainLabs/nitro-contracts
+    purpose: core_arbitrum_nitro_contracts
+    default_branch: main
+    analysis_paths:
+      - src/bridge/Bridge.sol
+      - src/bridge/Inbox.sol
+      - src/bridge/Outbox.sol
+      - src/libraries/AddressAliasHelper.sol
+
+seed_in_scope_assets_from_immunefi_first_page:
+  - IArbToken.sol
+  - L2ArbitrumMessenger.sol
+  - StandardArbERC20.sol
+  - L2ArbitrumGateway.sol
+  - L2CustomGateway.sol
+  - L2ERC20Gateway.sol
+  - L2GatewayRouter.sol
+  - L2WethGateway.sol
+  - ICustomToken.sol
+  - L1ArbitrumMessenger.sol
+  - L1ArbitrumExtendedGateway.sol
+  - L1ArbitrumGateway.sol
+
+seed_dao_addresses:
+  arb_token_arbitrum_one: "0x912CE59144191C1204E64559FE8253a0e49E6548"
+  arb_token_ethereum_bridged: "0xB50721BCf8d664c30412Cfbc6cf7a15145234ad1"
+  arb_token_nova_bridged: "0xf823C3cD3CeBE0a1fA952ba88Dc9EEf8e0Bf46AD"
+  arb_gateway_arbitrum_one: "0xCaD7828a19b363A2B44717AFB1786B5196974D8E"
+  arb_gateway_l1_ethereum: "0xbbcE8aA77782F13D4202a230d978F361B011dB27"
+  arb_gateway_nova: "0xbf544970E6BD77b21C6492C281AB60d0770451F4"
+
+impact_categories_to_prioritize:
+  critical:
+    - direct_theft_of_user_funds
+    - permanent_freezing_of_funds_not_fixable_by_upgrade
+    - insolvency
+  high:
+    - permanent_freezing_fixable_by_upgrade
+    - reorg_related_bugs
+    - fast_bridge_withdrawal_damage
+    - network_wide_dos_not_rpc_only
+  medium:
+    - griefing_with_protocol_or_user_damage
+    - theft_of_gas
+    - unbounded_gas_consumption
+    - contract_unable_to_operate_due_to_lack_of_funds
+    - block_stuffing_for_profit
+
+scope_snapshot_file: scope_snapshot.json
+local_only_poc: true
+

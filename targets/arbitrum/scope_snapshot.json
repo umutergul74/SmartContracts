@@ -1,0 +1,37 @@
+{
+  "asset_count": 181,
+  "asset_urls_sha256": "d7715a3bcd8af96c733b875980a81fa7254679d3d1a858eb474d7a1fe9e99eae",
+  "captured_at_utc": "2026-06-30T00:00:00Z",
+  "impact_count": 13,
+  "impacts_sha256": "208b957be149d29ec43d13870c7c412c5e11af3f23b5efcb8e6a052bf73e4d01",
+  "program_last_updated": "06 March 2025",
+  "prohibited_activity_markers": [
+    "Any testing on mainnet or public testnet deployed code",
+    "all testing should be done on local-forks",
+    "Public disclosure of an unpatched vulnerability"
+  ],
+  "repositories": [
+    "https://github.com/ArbitrumFoundation/governance",
+    "https://github.com/OffchainLabs/fund-distribution-contracts",
+    "https://github.com/OffchainLabs/nitro-contracts",
+    "https://github.com/OffchainLabs/token-bridge-contracts"
+  ],
+  "schema_version": "1",
+  "seed_assets": [
+    "IArbToken.sol",
+    "L2ArbitrumMessenger.sol",
+    "StandardArbERC20.sol",
+    "L2ArbitrumGateway.sol",
+    "L2CustomGateway.sol",
+    "L2ERC20Gateway.sol",
+    "L2GatewayRouter.sol",
+    "L2WethGateway.sol",
+    "ICustomToken.sol",
+    "L1ArbitrumMessenger.sol",
+    "L1ArbitrumExtendedGateway.sol",
+    "L1ArbitrumGateway.sol"
+  ],
+  "source_url": "https://immunefi.com/bug-bounty/arbitrum/scope/",
+  "target_id": "arbitrum"
+}
+
