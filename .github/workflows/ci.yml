@@ -54,7 +54,7 @@ jobs:
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@c7450ba673e133f5ee30098b3b54f444d3a2ca2d # v1
         with:
-          version: stable
+          version: v1.7.1
       - name: Validate local Semgrep rules
         run: semgrep scan --validate --config semgrep/solidity
       - name: Scan educational fixture
@@ -62,5 +62,4 @@ jobs:
           semgrep scan --config semgrep/solidity --metrics=off --no-git-ignore
           tests/fixtures/toy_bridge/src
       - name: Run local Foundry fixture
-        working-directory: tests/fixtures/toy_bridge
-        run: forge test -vv
+        run: forge test --root tests/fixtures/toy_bridge -vv
