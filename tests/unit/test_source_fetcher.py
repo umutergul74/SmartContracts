@@ -29,9 +29,15 @@ def test_source_fetcher_records_pinned_selected_content(tmp_path: Path, monkeypa
             ToolExecution(tool="git", available=True, exit_code=0, stdout="a" * 40),
         ]
     )
+    commands: list[list[str]] = []
+
+    def fake_run_command(*args, **kwargs):
+        commands.append(args[1])
+        return next(calls)
+
     monkeypatch.setattr(
         "scbounty.source.fetcher.run_command",
-        lambda *args, **kwargs: next(calls),
+        fake_run_command,
     )
 
     manifest = SourceFetcher().fetch(target, root=tmp_path)
@@ -39,6 +45,8 @@ def test_source_fetcher_records_pinned_selected_content(tmp_path: Path, monkeypa
     assert manifest.artifacts[0].commit_sha == "a" * 40
     assert manifest.artifacts[0].selected_paths == ["contracts/A.sol"]
     assert len(manifest.artifacts[0].selected_content_hash) == 64
+    assert all("-c" in command for command in commands)
+    assert all(any(part.startswith("safe.directory=") for part in command) for command in commands)
 
 
 def test_source_fetcher_records_local_fixture_without_git_clone() -> None:

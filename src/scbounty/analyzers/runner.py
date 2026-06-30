@@ -15,6 +15,10 @@ from scbounty.analyzers import (
     SolhintAdapter,
 )
 from scbounty.analyzers.base import AnalyzerAdapter
+from scbounty.analyzers.evidence import (
+    semgrep_findings_from_execution,
+    slither_findings_from_execution,
+)
 from scbounty.config.models import (
     AnalyzerResult,
     Finding,
@@ -65,15 +69,46 @@ def _detectors() -> list[Detector]:
 def _merge_findings(findings: list[Finding]) -> list[Finding]:
     merged: dict[str, Finding] = {}
     for finding in findings:
-        current = merged.get(finding.deduplication_key)
+        semantic_key = _semantic_deduplication_key(finding)
+        current = merged.get(semantic_key)
         if current is None:
-            merged[finding.deduplication_key] = finding
+            merged[semantic_key] = finding
             continue
         known = {(item.kind, item.summary, item.source) for item in current.evidence}
         current.evidence.extend(
             item for item in finding.evidence if (item.kind, item.summary, item.source) not in known
         )
     return sorted(merged.values(), key=lambda finding: finding.finding_id)
+
+
+def _semantic_deduplication_key(finding: Finding) -> str:
+    location = finding.source_locations[0] if finding.source_locations else None
+    location_path = location.path if location else ""
+    functions = ",".join(sorted(finding.affected_functions))
+    return "|".join((finding.target_id, location_path, functions, finding.category))
+
+
+def _findings_from_analyzer_result(
+    target: TargetConfig,
+    repository: str,
+    workspace: Path,
+    result: AnalyzerResult,
+) -> list[Finding]:
+    if result.analyzer == "semgrep":
+        return semgrep_findings_from_execution(
+            target_id=target.target_id,
+            repository=repository,
+            workspace=workspace,
+            execution=result.execution,
+        )
+    if result.analyzer == "slither":
+        return slither_findings_from_execution(
+            target_id=target.target_id,
+            repository=repository,
+            workspace=workspace,
+            execution=result.execution,
+        )
+    return []
 
 
 class AnalysisRunner:
@@ -144,8 +179,16 @@ class AnalysisRunner:
         all_findings: list[Finding] = []
         for artifact in source_manifest.artifacts:
             workspace = Path(artifact.checkout_path)
+            analyzer_findings: list[Finding] = []
             for adapter in selected_adapters:
                 result = adapter.run(target, workspace, artifact.selected_paths)
+                result.findings = _findings_from_analyzer_result(
+                    target,
+                    artifact.repository,
+                    workspace,
+                    result,
+                )
+                analyzer_findings.extend(result.findings)
                 results.append(result)
             for relative in artifact.selected_paths:
                 source_file = workspace / relative
@@ -153,6 +196,7 @@ class AnalysisRunner:
                 display_path = Path(artifact.repository) / relative
                 for detector in _detectors():
                     all_findings.extend(detector.analyze(target.target_id, display_path, source))
+            all_findings.extend(analyzer_findings)
 
         findings = _merge_findings(all_findings)
         internal_result = AnalyzerResult(

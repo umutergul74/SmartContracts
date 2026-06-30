@@ -19,6 +19,17 @@ def _directory_name(repository_name: str) -> str:
     return re.sub(r"[^A-Za-z0-9_.-]", "-", repository_name)
 
 
+def _git_in_checkout(checkout: Path, *args: str) -> list[str]:
+    return [
+        "git",
+        "-c",
+        f"safe.directory={checkout.resolve().as_posix()}",
+        "-C",
+        str(checkout),
+        *args,
+    ]
+
+
 class SourceFetcher:
     def fetch(
         self,
@@ -79,23 +90,21 @@ class SourceFetcher:
             else:
                 execution = run_command(
                     "git",
-                    [
-                        "git",
-                        "-C",
-                        str(checkout),
+                    _git_in_checkout(
+                        checkout,
                         "fetch",
                         "--depth",
                         "1",
                         "origin",
                         repository.default_branch,
-                    ],
+                    ),
                     cwd=base,
                     timeout_seconds=300,
                 )
                 if execution.exit_code == 0:
                     execution = run_command(
                         "git",
-                        ["git", "-C", str(checkout), "checkout", "--detach", "FETCH_HEAD"],
+                        _git_in_checkout(checkout, "checkout", "--detach", "FETCH_HEAD"),
                         cwd=base,
                     )
             if execution.exit_code != 0:
@@ -104,7 +113,7 @@ class SourceFetcher:
                 )
             revision = run_command(
                 "git",
-                ["git", "-C", str(checkout), "rev-parse", "HEAD"],
+                _git_in_checkout(checkout, "rev-parse", "HEAD"),
                 cwd=base,
             )
             if revision.exit_code != 0:
