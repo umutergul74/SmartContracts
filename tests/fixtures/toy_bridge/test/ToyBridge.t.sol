@@ -35,21 +35,45 @@ contract ToyBridgeLocalReproductionTest {
     }
 }
 
+contract SafeToyBridgeHandler {
+    SafeToyBridge internal bridge;
+    SafeToyToken internal canonical;
+    SafeToyToken internal representation;
+
+    constructor(
+        SafeToyBridge bridge_,
+        SafeToyToken canonical_,
+        SafeToyToken representation_
+    ) {
+        bridge = bridge_;
+        canonical = canonical_;
+        representation = representation_;
+    }
+
+    function deposit(uint96 rawAmount) external {
+        uint256 amount = uint256(rawAmount) + 1;
+        bridge.deposit(address(canonical), address(representation), amount);
+    }
+}
+
 contract SafeToyBridgeInvariantTest {
     SafeToyBridge internal bridge;
     SafeToyToken internal canonical;
     SafeToyToken internal representation;
+    SafeToyBridgeHandler internal handler;
 
     function setUp() public {
         bridge = new SafeToyBridge(address(this));
         canonical = new SafeToyToken(address(bridge));
         representation = new SafeToyToken(address(bridge));
         canonical.seed(address(this), type(uint128).max);
+        handler = new SafeToyBridgeHandler(bridge, canonical, representation);
+        canonical.seed(address(handler), type(uint128).max);
     }
 
     function targetContracts() public view returns (address[] memory targets) {
         targets = new address[](1);
-        targets[0] = address(bridge);
+        targets[0] = address(handler);
     }
 
     function testFuzz_EscrowCoversRepresentation(uint96 rawAmount) public {
