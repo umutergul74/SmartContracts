@@ -1,8 +1,10 @@
 from pathlib import Path
 
+import pytest
+
 from scbounty.config.loader import load_target
 from scbounty.config.models import ToolExecution
-from scbounty.source.fetcher import SourceFetcher
+from scbounty.source.fetcher import SourceFetcher, SourceFetchError
 
 
 def test_source_fetcher_records_pinned_selected_content(tmp_path: Path, monkeypatch) -> None:
@@ -60,3 +62,38 @@ def test_source_fetcher_records_local_fixture_without_git_clone() -> None:
     assert artifact.commit_sha.startswith("local-fixture-")
     assert artifact.selected_paths == ["src/ToyBridge.sol", "src/SafeToyBridge.sol"]
     assert len(artifact.selected_content_hash) == 64
+
+
+def test_source_fetcher_rejects_partially_missing_reviewed_scope(
+    tmp_path: Path, monkeypatch
+) -> None:
+    target = load_target("arbitrum")
+    target.source_repositories = target.source_repositories[:1]
+    repository = target.source_repositories[0]
+    repository.analysis_paths = ["contracts/A.sol", "contracts/Missing.sol"]
+    checkout = (
+        tmp_path
+        / ".scbounty"
+        / "cache"
+        / "sources"
+        / "arbitrum"
+        / "OffchainLabs-token-bridge-contracts"
+    )
+    (checkout / ".git").mkdir(parents=True)
+    source = checkout / "contracts" / "A.sol"
+    source.parent.mkdir(parents=True)
+    source.write_text("contract A {}", encoding="utf-8")
+    calls = iter(
+        [
+            ToolExecution(tool="git", available=True, exit_code=0),
+            ToolExecution(tool="git", available=True, exit_code=0),
+            ToolExecution(tool="git", available=True, exit_code=0, stdout="b" * 40),
+        ]
+    )
+    monkeypatch.setattr(
+        "scbounty.source.fetcher.run_command",
+        lambda *args, **kwargs: next(calls),
+    )
+
+    with pytest.raises(SourceFetchError, match="contracts/Missing.sol"):
+        SourceFetcher().fetch(target, root=tmp_path)

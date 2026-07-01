@@ -2,10 +2,12 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from scbounty.config.models import EvidenceItem, Finding, ToolExecution
 from scbounty.detectors.base import SolidityFunction, functions_in, make_finding
+
+SlitherConfidence = Literal["low", "medium", "high"]
 
 
 def _function_at_line(source: str, line: int) -> SolidityFunction:
@@ -81,6 +83,116 @@ def _semgrep_rule_metadata(check_id: str) -> tuple[str, str, str, str, list[str]
         "The impact depends on manual scope and exploitability review.",
         ["Semgrep results are review signals and not standalone bounty evidence."],
         "Manually review the cited source and add a stronger semantic detector if useful.",
+    )
+
+
+def _slither_check_metadata(
+    check: str,
+) -> tuple[str, str, str, str, list[str], str, SlitherConfidence]:
+    category = f"slither_{check.replace('-', '_')}"
+    if check == "unused-return":
+        return (
+            category,
+            "Slither unused return value requires compatibility review",
+            (
+                "Slither found an ignored return value. In Arbitrum bridge code this is often "
+                "benign when the callee reverts on failure, but it can matter for non-standard "
+                "tokens or retryable APIs."
+            ),
+            "A true issue could hide a failed mint, transfer, deployment, or retryable creation.",
+            [
+                "The callee may revert on failure and only return true on success.",
+                "The returned value may be intentionally unused because the side effect is enough.",
+            ],
+            (
+                "Confirm callee semantics; require or document return handling where failure "
+                "can be silent."
+            ),
+            "low",
+        )
+    if check == "arbitrary-send-eth":
+        return (
+            category,
+            "Slither arbitrary ETH transfer requires Arbitrum value-flow review",
+            (
+                "Slither found ETH value flowing to a variable-controlled target. Retryable "
+                "ticket funding, WETH wrapping, and explicit refund flows require manual context."
+            ),
+            "A true issue could redirect bridge funds or refunds to an unintended receiver.",
+            [
+                "The call may be funding an Arbitrum retryable ticket rather than paying a user.",
+                "The value receiver may be the expected refund or WETH contract.",
+                "The entry point may be owner-only or counterpart-gated.",
+            ],
+            "Trace caller authorization and refund receiver derivation before promoting severity.",
+            "low",
+        )
+    if check == "arbitrary-send-erc20":
+        return (
+            category,
+            "Slither arbitrary ERC20 transfer requires bridge caller review",
+            (
+                "Slither found ERC20 transferFrom using a variable source. Bridge gateways often "
+                "derive that source from router-encoded user context."
+            ),
+            "A true issue could pull tokens from an unintended approved account.",
+            [
+                "The source address may be authenticated by router/counterpart message decoding.",
+                "The transfer may require user allowance and still fail safely.",
+            ],
+            (
+                "Trace how the source account is derived and add a negative caller/auth test "
+                "if relevant."
+            ),
+            "low",
+        )
+    if check == "out-of-order-retryable":
+        return (
+            category,
+            "Slither retryable ordering signal requires cross-domain liveness review",
+            (
+                "Slither found multiple retryable ticket creations in a related flow. Arbitrum "
+                "retryable ordering can be security-relevant when later steps assume earlier "
+                "deployments succeeded."
+            ),
+            (
+                "A true issue could leave bridge deployment or recovery in a partially "
+                "initialized state."
+            ),
+            [
+                "The protocol may intentionally support resend/recovery for expired retryables.",
+                "Different senders or deterministic salts may make out-of-order execution safe.",
+            ],
+            "Model the retryable sequence locally and check resend/expiry recovery invariants.",
+            "medium",
+        )
+    if check == "divide-before-multiply":
+        return (
+            category,
+            "Slither arithmetic precision signal requires rounding review",
+            (
+                "Slither found multiplication after division. This may be safe if the code "
+                "explicitly rounds in the intended direction."
+            ),
+            "A true issue could undercharge fees or strand value through precision loss.",
+            [
+                "The code may intentionally round up after division.",
+                "The amount may be bounded or denominated to avoid precision loss.",
+            ],
+            "Confirm rounding direction with boundary tests around token decimals.",
+            "low",
+        )
+    return (
+        category,
+        f"Slither {check} requires manual review",
+        "Slither emitted a semantic analysis signal requiring human triage.",
+        "The impact depends on manual scope and exploitability review.",
+        [
+            "Slither findings can be informational or context-dependent.",
+            "Scope and exploitability must be confirmed manually.",
+        ],
+        "Review the Slither finding and add a local PoC or invariant if relevant.",
+        "medium",
     )
 
 
@@ -181,30 +293,26 @@ def slither_findings_from_execution(
         source = source_file.read_text(encoding="utf-8", errors="replace")
         function = _function_at_line(source, start_line)
         check = str(detector_result.get("check") or "slither-review")
-        description = str(detector_result.get("description") or check).strip()
+        raw_description = str(detector_result.get("description") or check).strip()
+        category, title, context, impact, risks, fix, confidence = _slither_check_metadata(check)
         finding = make_finding(
             target_id=target_id,
             detector="slither",
             source_path=display_path,
             function=function,
-            title=f"Slither {check} requires manual review",
-            category=f"slither_{check.replace('-', '_')}",
-            description=description,
-            impact="Slither emitted a semantic analysis signal requiring human triage.",
-            false_positive_risks=[
-                "Slither findings can be informational or context-dependent.",
-                "Scope and exploitability must be confirmed manually.",
-            ],
-            recommended_fix=(
-                "Review the Slither finding and add a local PoC or invariant if relevant."
-            ),
-            confidence="medium",
+            title=title,
+            category=category,
+            description=f"{context}\n\nSlither detail: {raw_description}",
+            impact=impact,
+            false_positive_risks=risks,
+            recommended_fix=fix,
+            confidence=confidence,
         )
         finding.tool = "slither"
         finding.evidence = [
             EvidenceItem(
                 kind="slither_signal",
-                summary=description.splitlines()[0],
+                summary=raw_description.splitlines()[0],
                 artifact_path="run.json",
                 source=check,
             )

@@ -8,7 +8,7 @@ from scbounty.analyzers.evidence import (
     semgrep_findings_from_execution,
     slither_findings_from_execution,
 )
-from scbounty.analyzers.runner import _merge_findings
+from scbounty.analyzers.runner import _filter_findings_to_selected_paths, _merge_findings
 from scbounty.config.models import ToolExecution
 from scbounty.detectors.arbitrum_bridge import ArbitrumBridgeDetector
 
@@ -213,6 +213,80 @@ def test_slither_parser_handles_missing_json_or_detector_elements(tmp_path: Path
         )
         == []
     )
+
+
+def test_slither_arbitrum_context_adjusts_confidence(tmp_path: Path) -> None:
+    workspace = _copy_toy_bridge(tmp_path)
+    source_path = workspace / "src" / "ToyBridge.sol"
+    payload = {
+        "results": {
+            "detectors": [
+                {
+                    "check": "arbitrary-send-eth",
+                    "description": "Value flow signal",
+                    "elements": [
+                        {
+                            "source_mapping": {
+                                "filename_absolute": str(source_path),
+                                "lines": [15],
+                            }
+                        }
+                    ],
+                },
+                {
+                    "check": "out-of-order-retryable",
+                    "description": "Retryable ordering signal",
+                    "elements": [
+                        {
+                            "source_mapping": {
+                                "filename_absolute": str(source_path),
+                                "lines": [15],
+                            }
+                        }
+                    ],
+                },
+            ]
+        }
+    }
+
+    findings = slither_findings_from_execution(
+        target_id="toy_bridge",
+        repository="scbounty/toy_bridge_fixture",
+        workspace=workspace,
+        execution=ToolExecution(
+            tool="slither",
+            available=True,
+            exit_code=0,
+            stdout=json.dumps(payload),
+        ),
+    )
+
+    assert [finding.confidence for finding in findings] == ["low", "medium"]
+    assert "retryable ordering" in findings[1].title.casefold()
+
+
+def test_analyzer_findings_are_filtered_to_selected_scope_paths(tmp_path: Path) -> None:
+    workspace = _copy_toy_bridge(tmp_path)
+    vulnerable_source = (workspace / "src" / "ToyBridge.sol").read_text(encoding="utf-8")
+    detector = ArbitrumBridgeDetector()
+    in_scope = detector.analyze(
+        "toy_bridge",
+        Path("scbounty/toy_bridge_fixture/src/ToyBridge.sol"),
+        vulnerable_source,
+    )[0]
+    outside_scope = detector.analyze(
+        "toy_bridge",
+        Path("scbounty/toy_bridge_fixture/src/SafeToyBridge.sol"),
+        vulnerable_source,
+    )[0]
+
+    filtered = _filter_findings_to_selected_paths(
+        [in_scope, outside_scope],
+        "scbounty/toy_bridge_fixture",
+        ["src/ToyBridge.sol"],
+    )
+
+    assert filtered == [in_scope]
     assert (
         slither_findings_from_execution(
             target_id="toy_bridge",

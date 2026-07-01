@@ -32,6 +32,7 @@ from scbounty.detectors import (
     ArbitrumBridgeDetector,
     CrossChainMessagingDetector,
     GasGriefingDetector,
+    UnsafeERC20Detector,
     UpgradeabilityDetector,
 )
 from scbounty.detectors.base import Detector
@@ -61,6 +62,7 @@ def _detectors() -> list[Detector]:
         ArbitrumBridgeDetector(),
         CrossChainMessagingDetector(),
         AccountingDetector(),
+        UnsafeERC20Detector(),
         UpgradeabilityDetector(),
         GasGriefingDetector(),
     ]
@@ -88,27 +90,61 @@ def _semantic_deduplication_key(finding: Finding) -> str:
     return "|".join((finding.target_id, location_path, functions, finding.category))
 
 
+def _filter_findings_to_selected_paths(
+    findings: list[Finding],
+    repository: str,
+    selected_paths: list[str],
+) -> list[Finding]:
+    allowed = {(Path(repository) / Path(path)).as_posix() for path in selected_paths}
+    return [
+        finding
+        for finding in findings
+        if any(location.path in allowed for location in finding.source_locations)
+    ]
+
+
 def _findings_from_analyzer_result(
     target: TargetConfig,
     repository: str,
     workspace: Path,
+    selected_paths: list[str],
     result: AnalyzerResult,
 ) -> list[Finding]:
     if result.analyzer == "semgrep":
-        return semgrep_findings_from_execution(
+        findings = semgrep_findings_from_execution(
             target_id=target.target_id,
             repository=repository,
             workspace=workspace,
             execution=result.execution,
         )
-    if result.analyzer == "slither":
-        return slither_findings_from_execution(
+    elif result.analyzer == "slither":
+        findings = slither_findings_from_execution(
             target_id=target.target_id,
             repository=repository,
             workspace=workspace,
             execution=result.execution,
         )
-    return []
+    else:
+        return []
+    return _filter_findings_to_selected_paths(findings, repository, selected_paths)
+
+
+def _create_run_directory(
+    target_id: str,
+    started: datetime,
+    config_hash: str,
+    root: Path | None,
+) -> tuple[str, Path]:
+    base_run_id = f"{target_id}-{started.strftime('%Y%m%dT%H%M%S%fZ')}-{config_hash[:8]}"
+    for attempt in range(100):
+        run_id = base_run_id if attempt == 0 else f"{base_run_id}-{attempt}"
+        run_dir = safe_child(artifacts_root(root), "runs", run_id)
+        try:
+            run_dir.mkdir(parents=True, exist_ok=False)
+        except FileExistsError:
+            continue
+        return run_id, run_dir
+    raise RuntimeError(f"Could not allocate a unique run directory for {base_run_id}")
 
 
 class AnalysisRunner:
@@ -129,9 +165,7 @@ class AnalysisRunner:
     ) -> tuple[RunManifest, list[Finding], Path]:
         started = datetime.now(UTC)
         config_hash = stable_json_hash(target.model_dump(mode="json"))
-        run_id = f"{target.target_id}-{started.strftime('%Y%m%dT%H%M%SZ')}-{config_hash[:8]}"
-        run_dir = safe_child(artifacts_root(root), "runs", run_id)
-        run_dir.mkdir(parents=True, exist_ok=False)
+        run_id, run_dir = _create_run_directory(target.target_id, started, config_hash, root)
         manifest_path = run_dir / "run.json"
         manifest = RunManifest(
             run_id=run_id,
@@ -186,6 +220,7 @@ class AnalysisRunner:
                     target,
                     artifact.repository,
                     workspace,
+                    artifact.selected_paths,
                     result,
                 )
                 analyzer_findings.extend(result.findings)

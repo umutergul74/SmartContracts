@@ -25,13 +25,18 @@ class FoundryAdapter(ExternalToolAdapter):
             self.name,
             [self.resolved_executable(), "build", "--root", str(workspace)],
             cwd=workspace,
-            timeout_seconds=600,
+            timeout_seconds=180,
         )
         execution.version = self.version()
         status: Literal["completed", "failed"] = (
             "completed" if execution.exit_code == 0 else "failed"
         )
-        warnings = [] if status == "completed" else ["Foundry build did not complete successfully."]
+        if status == "completed":
+            warnings = []
+        elif execution.timed_out:
+            warnings = ["Foundry build timed out; analysis continued in degraded mode."]
+        else:
+            warnings = ["Foundry build did not complete successfully."]
         return AnalyzerResult(
             analyzer=self.name,
             status=status,
@@ -49,12 +54,18 @@ class FoundryAdapter(ExternalToolAdapter):
             self.name,
             command,
             cwd=workspace,
-            timeout_seconds=600,
+            timeout_seconds=180,
         )
         execution.version = self.version()
+        if execution.exit_code == 0:
+            warnings = []
+        elif execution.timed_out:
+            warnings = ["Foundry tests timed out."]
+        else:
+            warnings = ["Foundry tests failed."]
         return AnalyzerResult(
             analyzer=self.name,
             status="completed" if execution.exit_code == 0 else "failed",
             execution=execution,
-            warnings=[] if execution.exit_code == 0 else ["Foundry tests failed."],
+            warnings=warnings,
         )

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from pathlib import Path
 from typing import Literal
 
@@ -18,20 +19,29 @@ class SlitherAdapter(ExternalToolAdapter):
         workspace: Path,
         selected_paths: list[str] | None = None,
     ) -> AnalyzerResult:
-        del target, selected_paths
+        del target
         if not self.is_available():
             return self.missing_result()
+        command = [
+            self.resolved_executable(),
+            str(workspace),
+            "--json",
+            "-",
+            "--disable-color",
+        ]
+        include_filter = _include_filter(selected_paths or [])
+        if include_filter:
+            command.extend(["--include-paths", include_filter])
         execution = run_command(
             self.name,
-            [
-                self.resolved_executable(),
-                str(workspace),
-                "--json",
-                "-",
-                "--disable-color",
-            ],
+            command,
             cwd=workspace,
-            timeout_seconds=900,
+            timeout_seconds=60,
+            extra_env={
+                "GIT_CONFIG_COUNT": "1",
+                "GIT_CONFIG_KEY_0": "safe.directory",
+                "GIT_CONFIG_VALUE_0": workspace.resolve().as_posix(),
+            },
         )
         execution.version = self.version()
         # Slither may use non-zero status when detectors emit results. A parseable JSON payload
@@ -40,10 +50,22 @@ class SlitherAdapter(ExternalToolAdapter):
         status: Literal["completed", "failed"] = (
             "completed" if execution.exit_code == 0 or has_json else "failed"
         )
-        warnings = [] if status == "completed" else ["Slither failed before producing JSON output."]
+        if status == "completed":
+            warnings = []
+        elif execution.timed_out:
+            warnings = ["Slither timed out before producing JSON output."]
+        else:
+            warnings = ["Slither failed before producing JSON output."]
         return AnalyzerResult(
             analyzer=self.name,
             status=status,
             execution=execution,
             warnings=warnings,
         )
+
+
+def _include_filter(selected_paths: list[str]) -> str | None:
+    files = [Path(path).as_posix() for path in selected_paths if path.endswith(".sol")]
+    if not files:
+        return None
+    return "|".join(re.escape(path) for path in files)

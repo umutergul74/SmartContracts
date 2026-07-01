@@ -43,3 +43,33 @@ def test_redaction_hides_url_credentials_and_query_secrets() -> None:
 
 def test_redaction_accepts_missing_streams() -> None:
     assert redact(None) == ""
+
+
+def test_git_safe_directory_env_is_allowed_without_allowing_secret_env() -> None:
+    result = run_command(
+        "python",
+        [
+            sys.executable,
+            "-c",
+            "import os; print(os.environ['GIT_CONFIG_KEY_0'])",
+        ],
+        cwd=Path.cwd(),
+        extra_env={
+            "GIT_CONFIG_COUNT": "1",
+            "GIT_CONFIG_KEY_0": "safe.directory",
+            "GIT_CONFIG_VALUE_0": Path.cwd().as_posix(),
+        },
+    )
+
+    assert result.exit_code == 0
+    assert result.stdout.strip() == "safe.directory"
+
+
+def test_secret_bearing_extra_env_is_rejected() -> None:
+    with pytest.raises(UnsafeCommandError):
+        run_command(
+            "python",
+            [sys.executable, "-c", "print('nope')"],
+            cwd=Path.cwd(),
+            extra_env={"PRIVATE_KEY": "secret"},
+        )

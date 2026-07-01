@@ -63,7 +63,7 @@ class SemgrepAdapter(ExternalToolAdapter):
                 *candidates,
             ],
             cwd=workspace,
-            timeout_seconds=600,
+            timeout_seconds=180,
             extra_env=self._safe_log_environment(),
         )
         execution.version = self.version()
@@ -71,7 +71,12 @@ class SemgrepAdapter(ExternalToolAdapter):
         status: Literal["completed", "failed"] = (
             "completed" if execution.exit_code == 0 and has_json else "failed"
         )
-        warnings = [] if status == "completed" else ["Semgrep did not produce valid JSON output."]
+        if status == "completed":
+            warnings = []
+        elif execution.timed_out:
+            warnings = ["Semgrep timed out before producing valid JSON output."]
+        else:
+            warnings = ["Semgrep did not produce valid JSON output."]
         return AnalyzerResult(
             analyzer=self.name,
             status=status,

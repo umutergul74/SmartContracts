@@ -63,18 +63,61 @@ def functions_in(source: str) -> list[SolidityFunction]:
 def has_caller_guard(function: SolidityFunction) -> bool:
     combined = f"{function.tail}\n{function.body}".casefold()
     markers = (
+        "onlycounterpartgateway",
         "onlygateway",
         "onlyrouter",
         "onlybridge",
         "onlyowner",
         "onlyrole",
+        "not_from_bridge",
+        "only_counterpart_gateway",
+        "getl2tol1sender",
         "msg.sender ==",
         "msg.sender!=",
         "msg.sender !=",
         "_msgsender() ==",
-        "addressaliash",
+        "addressaliashelper",
     )
     return any(marker in combined for marker in markers)
+
+
+def has_admin_guard(function: SolidityFunction) -> bool:
+    combined = f"{function.tail}\n{function.body}".casefold()
+    return any(
+        marker in combined
+        for marker in (
+            "onlyowner",
+            "proxyadmin",
+            "msg.sender == owner",
+            "msg.sender==owner",
+            "not_from_admin",
+            "onlyrole(default_admin_role",
+        )
+    )
+
+
+def is_publicly_callable(function: SolidityFunction) -> bool:
+    tail = function.tail.casefold()
+    return "external" in tail or "public" in tail
+
+
+def body_without_string_literals(body: str) -> str:
+    return re.sub(r'"[^"]*"|\'[^\']*\'', '""', body)
+
+
+def is_reverting_stub(body: str) -> bool:
+    lowered = body_without_string_literals(body).casefold()
+    mutation_markers = (
+        "_mint",
+        "_burn",
+        "totalsupply",
+        "balanceof",
+        ".mint",
+        ".burn",
+        "transfer(",
+        "call{",
+    )
+    return "revert(" in lowered and not any(marker in lowered for marker in mutation_markers)
 
 
 def make_finding(

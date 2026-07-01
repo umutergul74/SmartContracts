@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from scbounty.config.models import Finding
-from scbounty.detectors.base import functions_in, has_caller_guard, make_finding
+from scbounty.detectors.base import functions_in, has_caller_guard, is_reverting_stub, make_finding
 
 
 class CrossChainMessagingDetector:
@@ -13,8 +13,10 @@ class CrossChainMessagingDetector:
         findings: list[Finding] = []
         for function in functions_in(source):
             lowered = function.name.casefold()
-            if lowered in {"finalizeinboundtransfer", "executemessage"} and not has_caller_guard(
-                function
+            if (
+                lowered in {"finalizeinboundtransfer", "executemessage"}
+                and not is_reverting_stub(function.body)
+                and not has_caller_guard(function)
             ):
                 findings.append(
                     make_finding(

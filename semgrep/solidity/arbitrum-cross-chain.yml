@@ -7,5 +7,6 @@ rules:
       - pattern-regex: '(?s)function\s+bridge(?:Mint|Burn)\s*\([^)]*\)[^{;]*\{[^}]*\}'
       - pattern-not-regex: '(?s)function\s+bridge(?:Mint|Burn)\s*\([^)]*\)[^{;]*(?:onlyGateway|onlyBridge|onlyRole)[^{;]*\{[^}]*\}'
       - pattern-not-regex: '(?s)function\s+bridge(?:Mint|Burn)\s*\([^)]*\)[^{;]*\{[^}]*require\s*\(\s*msg\.sender[^}]*\}'
+      - pattern-not-regex: '(?s)function\s+bridge(?:Mint|Burn)\s*\([^)]*\)[^{;]*\{\s*(?://[^\n]*\n\s*)*revert\s*\('
     paths:
       include: ["**/*.sol"]

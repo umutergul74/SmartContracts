@@ -36,6 +36,11 @@ _SAFE_ENV_KEYS = {
     "VIRTUAL_ENV",
     "WINDIR",
 }
+_ALLOWED_NON_SECRET_EXTRA_ENV_KEYS = {
+    "GIT_CONFIG_COUNT",
+    "GIT_CONFIG_KEY_0",
+    "GIT_CONFIG_VALUE_0",
+}
 _MAX_CAPTURE = 200_000
 
 
@@ -64,7 +69,9 @@ def _clean_environment(extra: Mapping[str, str] | None = None) -> dict[str, str]
     if extra:
         for key, value in extra.items():
             lowered = key.lower()
-            if any(secret in lowered for secret in ("key", "mnemonic", "secret", "wallet")):
+            if key not in _ALLOWED_NON_SECRET_EXTRA_ENV_KEYS and any(
+                secret in lowered for secret in ("key", "mnemonic", "secret", "wallet")
+            ):
                 raise UnsafeCommandError(f"Secret-bearing environment variable rejected: {key}")
             environment[key] = value
     return environment

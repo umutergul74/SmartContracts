@@ -30,6 +30,22 @@ def _git_in_checkout(checkout: Path, *args: str) -> list[str]:
     ]
 
 
+def _select_reviewed_paths(
+    checkout: Path,
+    analysis_paths: list[str],
+    repository_name: str,
+) -> list[str]:
+    if not analysis_paths:
+        raise SourceFetchError(f"No reviewed analysis paths configured for {repository_name}")
+    missing = [path for path in analysis_paths if not (checkout / path).is_file()]
+    if missing:
+        rendered = ", ".join(missing)
+        raise SourceFetchError(
+            f"Reviewed analysis paths are missing in {repository_name}: {rendered}"
+        )
+    return list(analysis_paths)
+
+
 class SourceFetcher:
     def fetch(
         self,
@@ -48,13 +64,11 @@ class SourceFetcher:
                     raise SourceFetchError(
                         f"Local fixture source does not exist for {repository.name}: {checkout}"
                     )
-                selected = [
-                    path for path in repository.analysis_paths if (checkout / path).is_file()
-                ]
-                if not selected:
-                    raise SourceFetchError(
-                        f"None of the reviewed local analysis paths exist in {repository.name}"
-                    )
+                selected = _select_reviewed_paths(
+                    checkout,
+                    repository.analysis_paths,
+                    repository.name,
+                )
                 content_hash = hash_paths(checkout, selected)
                 artifacts.append(
                     SourceArtifact(
@@ -119,11 +133,11 @@ class SourceFetcher:
             if revision.exit_code != 0:
                 raise SourceFetchError(f"Could not pin commit for {repository.name}")
             commit = revision.stdout.strip()
-            selected = [path for path in repository.analysis_paths if (checkout / path).is_file()]
-            if not selected:
-                raise SourceFetchError(
-                    f"None of the reviewed analysis paths exist in {repository.name} at {commit}"
-                )
+            selected = _select_reviewed_paths(
+                checkout,
+                repository.analysis_paths,
+                f"{repository.name} at {commit}",
+            )
             artifacts.append(
                 SourceArtifact(
                     repository=repository.name,

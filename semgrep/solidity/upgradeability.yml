@@ -6,5 +6,8 @@ rules:
     patterns:
       - pattern-regex: '(?s)function\s+initialize\w*\s*\([^)]*\)[^{;]*\{'
       - pattern-not-regex: '(?s)function\s+initialize\w*\s*\([^)]*\)[^{;]*(?:initializer|reinitializer)[^{;]*\{'
+      - pattern-not-regex: '(?s)function\s+initialize\w*\s*\([^)]*\)[^{;]*\{[^}]*(?:AlreadyInit|ALREADY_INIT|already initialized|already initialized)[^}]*\}'
+      - pattern-not-regex: '(?s)function\s+initialize\w*\s*\([^)]*\)[^{;]*\{[^}]*!=\s*(?:I\w+\()?address\(0\)\)?\s*\)\s*revert[^}]*\}'
+      - pattern-not-regex: '(?s)function\s+initialize\w*\s*\([^)]*\)[^{;]*\{[^}]*(?:TokenGateway|L1ArbitrumGateway|L2ArbitrumGateway|GatewayRouter|L2GatewayToken)\._initialize\s*\([^}]*\}'
     paths:
       include: ["**/*.sol"]
