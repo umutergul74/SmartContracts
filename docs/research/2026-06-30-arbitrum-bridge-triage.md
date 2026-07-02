@@ -482,3 +482,81 @@ Manual validation:
 Current decision: **do not submit**. The reviewed behavior is both documented in source and
 covered by upstream tests; no untrusted path was found to lower quorum below the configured
 minimum or bypass the proposal/voting snapshot model.
+
+### Rejected / expected: BOLD edge timer and refund public entrypoints
+
+Status: **reviewed, not promoted as a bounty candidate**.
+
+Relevant scoped paths:
+
+- `OffchainLabs/nitro-contracts/src/challengeV2/EdgeChallengeManager.sol`
+- `OffchainLabs/nitro-contracts/src/challengeV2/libraries/EdgeChallengeManagerLib.sol`
+- `OffchainLabs/nitro-contracts/src/challengeV2/libraries/ChallengeEdgeLib.sol`
+- `OffchainLabs/nitro-contracts/src/assertionStakingPool/EdgeStakingPool.sol`
+
+Observation:
+
+`EdgeChallengeManager.refundStake` is public, but the refunded edge must first pass
+`ChallengeEdgeLib.setRefunded`, which requires a confirmed layer-zero edge and rejects
+double refunds. Edge confirmation by time uses the stored edge graph and confirmed-rival
+tracking. One-step proof confirmation is restricted to length-one `SmallStep` edges and
+checks committed before/after state roots around the one-step proof output.
+
+Timer-cache update functions are also public, but the inherited timer values are derived
+from child links or from a checked claim edge. The claim path verifies `claimId`, requires
+the claiming edge origin to match the claimed edge mutual id, and requires the expected
+next edge level.
+
+Manual validation:
+
+- Upstream `EdgeChallengeManager.t.sol` includes confirmation, timer-cache, excess-stake,
+  and refund tests.
+- Upstream `EdgeChallengeManagerLib.t.sol` includes direct library tests around first-rival
+  tracking, time-unrivaled totals, cache sufficiency, and claim-based cache inheritance.
+
+Current decision: **do not submit**. No path was found where an untrusted caller can inflate
+timer cache through an unrelated edge, confirm a wrong rival while bypassing proof/link
+checks, or refund stake before the edge reaches confirmed layer-zero status.
+
+### Reviewed / degraded build: fund-distribution reward routers
+
+Status: **manual review completed, local upstream Foundry suite degraded due cache dependency
+resolution**.
+
+Relevant scoped paths:
+
+- `OffchainLabs/fund-distribution-contracts/src/RewardDistributor.sol`
+- `OffchainLabs/fund-distribution-contracts/src/FeeRouter/ParentToChildRewardRouter.sol`
+- `OffchainLabs/fund-distribution-contracts/src/FeeRouter/ChildToParentRewardRouter.sol`
+- `OffchainLabs/fund-distribution-contracts/src/FeeRouter/ArbChildToParentRewardRouter.sol`
+- `OffchainLabs/fund-distribution-contracts/src/FeeRouter/OpChildToParentRewardRouter.sol`
+
+Observation:
+
+`RewardDistributor.distributeRewards` is intentionally public, but callers must supply the
+currently committed recipient and weight arrays; mismatched hashes are rejected. Failed
+native recipient sends are redirected to the owner, and ERC-20 distribution uses SafeERC20
+with an explicit normal-token assumption.
+
+The parent-to-child router sends all escrowed native funds plus the caller-supplied retryable
+fee value to `unsafeCreateRetryableTicket`. It explicitly validates `msg.value ==
+maxSubmissionCost + gasLimit * maxFeePerGas`, enforces minimum gas settings, aliases
+contract fee-refund senders, and sets call-value refund to the intended child-chain
+destination. Token routing uses the current full token balance, approves the gateway, and
+routes to the fixed destination.
+
+Local validation:
+
+- Manual source review found no untrusted path to redirect destination funds, bypass interval
+  throttling, or claim distribution with a forged recipient/weight set.
+- Upstream unit tests cover recipient hash checks, owner-only recipient updates, fallback-to-owner
+  native sends, interval throttling, and exact parent-to-child native retryable fee value.
+- Attempted local `forge test` in the ignored cache degraded because the shallow checkout lacked
+  OpenZeppelin/nitro remappings at first; a cache-only dependency attempt resolved OpenZeppelin
+  but the `@arbitrum/nitro-contracts` v1.3.0 checkout hit an upstream submodule conflict around
+  precompile files. This was not promoted as a platform failure because it occurred outside the
+  committed source tree and did not affect the main project tests.
+
+Current decision: **do not submit**. The reviewed public-call surfaces are intentional and
+covered by existing validation; no unauthorized withdrawal, redirect, or accounting-bypass path
+was found in the scoped source.
