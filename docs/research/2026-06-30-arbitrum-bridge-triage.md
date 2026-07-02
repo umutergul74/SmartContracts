@@ -330,6 +330,34 @@ Observed guard path:
 Current status: **needs deployed-proxy initialization verification, not a validated
 code vulnerability**.
 
+#### Rollup initializer follow-up
+
+Status: **reviewed, not promoted as a bounty candidate**.
+
+A scoped Semgrep pass over Nitro rollup/challenge/assertion/state sources produced three
+initializer-review signals:
+
+- `src/rollup/RollupCore.sol::initializeCore`
+- `src/rollup/RollupProxy.sol::initializeProxy`
+- `src/rollup/RollupUserLogic.sol::initialize`
+
+Manual review:
+
+- `initializeCore` is an internal helper invoked by admin initialization, not a public
+  reinitializer surface by itself.
+- `RollupProxy.initializeProxy` only performs the initial proxy setup when admin, primary
+  implementation, and secondary implementation slots are all empty; otherwise it falls through
+  to normal proxy dispatch.
+- `RollupUserLogic.initialize` is `external view onlyProxy` and only validates that the stake
+  token is non-zero. It does not mutate storage and is paired with admin initialization.
+- Targeted upstream Foundry checks for `RollupTest::testSuccessFastConfirmNewAssertion` and
+  `RollupTest::testPartialDepositCanWithdraw` passed under `FOUNDRY_PROFILE=test`, confirming
+  the local checkout can execute the reviewed Rollup test harness for these paths.
+
+Current decision: **do not submit**. Keep these as tool-noise calibration cases for the
+upgradeability detector unless deployed proxy metadata later shows an unexpected initialization
+state mismatch.
+
 ### Gas/liveness collection loops
 
 Remaining low-confidence gas/liveness signals:

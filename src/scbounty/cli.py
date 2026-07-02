@@ -4,7 +4,9 @@ import os
 import platform
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Literal
 
+import orjson
 import typer
 from rich.console import Console
 from rich.table import Table
@@ -27,6 +29,7 @@ from scbounty.config.scope_coverage import (
     compare_target_scope_coverage,
     latest_attestation_path,
     load_scope_attestation,
+    render_scope_coverage_markdown,
 )
 from scbounty.config.scope_gate import ScopeGate, ScopeVerificationError
 from scbounty.harness.echidna_generator import generate_echidna_config
@@ -122,6 +125,17 @@ def scope_coverage(
         dir_okay=False,
         help="Scope attestation JSON. Defaults to the latest local attestation.",
     ),
+    output_format: Literal["table", "json", "markdown"] = typer.Option(
+        "table",
+        "--format",
+        help="Output format for the coverage summary.",
+    ),
+    output: Path | None = typer.Option(
+        None,
+        "--output",
+        dir_okay=False,
+        help="Optional file path for JSON or Markdown coverage output.",
+    ),
 ) -> None:
     target = load_target(target_id)
     try:
@@ -132,6 +146,33 @@ def scope_coverage(
         raise typer.Exit(3) from exc
 
     coverage = compare_target_scope_coverage(target, scope_attestation)
+    if output_format == "json":
+        payload = coverage.to_payload(target_id=target_id, attestation_path=attestation_path)
+        rendered = (
+            orjson.dumps(payload, option=orjson.OPT_INDENT_2 | orjson.OPT_SORT_KEYS).decode() + "\n"
+        )
+        if output:
+            output.parent.mkdir(parents=True, exist_ok=True)
+            output.write_text(rendered, encoding="utf-8")
+            console.print(f"Wrote scope coverage JSON: {output}")
+        else:
+            typer.echo(rendered, nl=False)
+        return
+
+    if output_format == "markdown":
+        rendered = render_scope_coverage_markdown(
+            coverage,
+            target_id=target_id,
+            attestation_path=attestation_path,
+        )
+        if output:
+            output.parent.mkdir(parents=True, exist_ok=True)
+            output.write_text(rendered, encoding="utf-8")
+            console.print(f"Wrote scope coverage Markdown: {output}")
+        else:
+            typer.echo(rendered, nl=False)
+        return
+
     table = Table("Repository", "Live assets", "Configured paths", "Exact matches")
     for repository, counts in coverage.repositories.items():
         observed_count, configured_count, exact_count = counts

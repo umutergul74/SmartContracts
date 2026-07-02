@@ -42,6 +42,8 @@ scbounty env doctor
 scbounty targets show arbitrum
 scbounty scope check arbitrum
 scbounty scope coverage arbitrum
+scbounty scope coverage arbitrum --format json --output artifacts/scope/arbitrum/coverage.json
+scbounty scope coverage arbitrum --format markdown --output artifacts/scope/arbitrum/coverage.md
 scbounty source fetch arbitrum
 scbounty analyze arbitrum --safe
 ```
@@ -69,6 +71,8 @@ scbounty targets list
 scbounty targets show arbitrum
 scbounty scope check arbitrum
 scbounty scope coverage arbitrum
+scbounty scope coverage arbitrum --format json --output artifacts/scope/arbitrum/coverage.json
+scbounty scope coverage arbitrum --format markdown --output artifacts/scope/arbitrum/coverage.md
 scbounty source fetch arbitrum
 scbounty analyze arbitrum --safe
 scbounty analyze arbitrum --tool slither

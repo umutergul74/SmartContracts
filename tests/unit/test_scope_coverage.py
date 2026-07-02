@@ -5,7 +5,10 @@ from scbounty.config.models import ScopeAttestation, ScopeDiff
 from scbounty.config.scope_coverage import (
     compare_target_scope_coverage,
     github_blob_asset_key,
+    latest_attestation_path,
+    render_scope_coverage_markdown,
 )
+from scbounty.utils.serialization import write_model
 
 
 def _attestation(urls: list[str]) -> ScopeAttestation:
@@ -61,3 +64,54 @@ def test_compare_target_scope_coverage_counts_exact_profile_matches() -> None:
     assert coverage.exact_match_count == 1
     assert coverage.repositories["OffchainLabs/token-bridge-contracts"] == (1, 43, 1)
     assert coverage.repositories["OffchainLabs/nitro-contracts"] == (1, 15, 0)
+
+
+def test_scope_coverage_payload_and_markdown_include_gap_queue(tmp_path) -> None:
+    target = load_target("arbitrum")
+    attestation_path = tmp_path / "scope.json"
+    coverage = compare_target_scope_coverage(
+        target,
+        _attestation(
+            [
+                "https://github.com/OffchainLabs/token-bridge-contracts/blob/main/"
+                "contracts/tokenbridge/arbitrum/gateway/L2GatewayRouter.sol",
+                "https://github.com/ArbitrumFoundation/governance/blob/main/"
+                "src/L2ArbitrumGovernor.sol",
+            ]
+        ),
+    )
+
+    payload = coverage.to_payload(target_id="arbitrum", attestation_path=attestation_path)
+    markdown = render_scope_coverage_markdown(
+        coverage,
+        target_id="arbitrum",
+        attestation_path=attestation_path,
+    )
+
+    assert payload["schema_version"] == "scope_coverage.v1"
+    assert payload["summary"]["observed_not_configured_count"] == 1
+    assert (
+        "ArbitrumFoundation/governance/src/L2ArbitrumGovernor.sol"
+        in payload["observed_not_configured"]
+    )
+    assert "DRAFT / INTERNAL RESEARCH QUEUE" in markdown
+    assert "`ArbitrumFoundation/governance/src/L2ArbitrumGovernor.sol`" in markdown
+
+
+def test_latest_attestation_path_ignores_coverage_artifacts(tmp_path, monkeypatch) -> None:
+    scope_dir = tmp_path / "scope" / "arbitrum"
+    scope_dir.mkdir(parents=True)
+    (scope_dir / "coverage.json").write_text('{"schema_version":"scope_coverage.v1"}')
+    attestation_path = scope_dir / "20260702T100000Z.json"
+    write_model(
+        attestation_path,
+        _attestation(
+            [
+                "https://github.com/OffchainLabs/token-bridge-contracts/blob/main/"
+                "contracts/tokenbridge/arbitrum/gateway/L2GatewayRouter.sol"
+            ]
+        ),
+    )
+    monkeypatch.setattr("scbounty.config.scope_coverage.artifacts_root", lambda: tmp_path)
+
+    assert latest_attestation_path("arbitrum") == attestation_path
