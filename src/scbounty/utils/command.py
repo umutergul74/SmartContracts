@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import re
+import signal
 import subprocess
 import sys
 from collections.abc import Mapping, Sequence
@@ -107,19 +108,33 @@ def run_command(
     command_list = [str(part) for part in command]
     assert_safe_command(command_list)
     started = datetime.now(UTC)
+    process: subprocess.Popen[str] | None = None
     try:
-        completed = subprocess.run(
-            command_list,
-            cwd=cwd,
-            env=_clean_environment(extra_env),
-            check=False,
-            capture_output=True,
-            encoding="utf-8",
-            errors="replace",
-            text=True,
-            timeout=timeout_seconds,
-            shell=False,
-        )
+        if sys.platform == "win32":
+            process = subprocess.Popen(
+                command_list,
+                cwd=cwd,
+                env=_clean_environment(extra_env),
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                encoding="utf-8",
+                errors="replace",
+                text=True,
+                creationflags=subprocess.CREATE_NEW_PROCESS_GROUP,
+            )
+        else:
+            process = subprocess.Popen(
+                command_list,
+                cwd=cwd,
+                env=_clean_environment(extra_env),
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                encoding="utf-8",
+                errors="replace",
+                text=True,
+                start_new_session=True,
+            )
+        stdout, stderr = process.communicate(timeout=timeout_seconds)
         ended = datetime.now(UTC)
         return ToolExecution(
             tool=tool,
@@ -127,22 +142,20 @@ def run_command(
             command=[redact(item, sensitive_values) for item in command_list],
             started_at_utc=started,
             ended_at_utc=ended,
-            exit_code=completed.returncode,
-            stdout=redact(completed.stdout, sensitive_values),
-            stderr=redact(completed.stderr, sensitive_values),
+            exit_code=process.returncode,
+            stdout=redact(stdout, sensitive_values),
+            stderr=redact(stderr, sensitive_values),
         )
-    except subprocess.TimeoutExpired as exc:
+    except subprocess.TimeoutExpired:
+        if process is not None:
+            _terminate_process_tree(process.pid)
+            try:
+                stdout, stderr = process.communicate(timeout=5)
+            except subprocess.TimeoutExpired:
+                stdout, stderr = "", ""
+        else:
+            stdout, stderr = "", ""
         ended = datetime.now(UTC)
-        stdout = (
-            exc.stdout.decode("utf-8", errors="replace")
-            if isinstance(exc.stdout, bytes)
-            else (exc.stdout or "")
-        )
-        stderr = (
-            exc.stderr.decode("utf-8", errors="replace")
-            if isinstance(exc.stderr, bytes)
-            else (exc.stderr or "")
-        )
         return ToolExecution(
             tool=tool,
             available=True,
@@ -163,3 +176,26 @@ def run_command(
             ended_at_utc=ended,
             stderr=redact(str(exc), sensitive_values),
         )
+
+
+def _terminate_process_tree(pid: int) -> None:
+    if sys.platform == "win32":
+        try:
+            subprocess.run(
+                ["taskkill", "/PID", str(pid), "/T", "/F"],
+                check=False,
+                capture_output=True,
+                text=True,
+                timeout=10,
+                shell=False,
+            )
+        except (OSError, subprocess.TimeoutExpired):
+            pass
+        return
+    try:
+        os.killpg(pid, signal.SIGKILL)
+    except OSError:
+        try:
+            os.kill(pid, signal.SIGKILL)
+        except OSError:
+            pass

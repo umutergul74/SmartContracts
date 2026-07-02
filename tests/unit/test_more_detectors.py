@@ -73,6 +73,55 @@ def test_admin_and_internal_loops_are_not_public_gas_griefing_signals() -> None:
     assert GasGriefingDetector().analyze("fixture", Path("AdminBatching.sol"), source) == []
 
 
+def test_read_only_initializer_and_role_guarded_loops_are_not_gas_griefing_signals() -> None:
+    source = """
+    contract GovernanceHelpers {
+        modifier onlyRole(bytes32 role) { role; _; }
+
+        function initialize(address[] memory members) external initializer {
+            for (uint256 i = 0; i < members.length; i++) { seen[members[i]] = true; }
+        }
+
+        function selectTopNominees(address[] memory nominees, uint240[] memory weights)
+            public
+            pure
+            returns (address[] memory)
+        {
+            for (uint256 i = 0; i < nominees.length; i++) { weights[i]; }
+            return nominees;
+        }
+
+        function replaceCohort(address[] memory newCohort)
+            external
+            onlyRole(keccak256("COHORT_REPLACER_ROLE"))
+        {
+            for (uint256 i = 0; i < newCohort.length; i++) { seen[newCohort[i]] = true; }
+        }
+    }
+    """
+
+    assert GasGriefingDetector().analyze("fixture", Path("GovernanceHelpers.sol"), source) == []
+
+
+def test_committed_recipient_hash_loop_is_not_gas_griefing_signal() -> None:
+    source = """
+    contract RewardDistributor {
+        bytes32 public currentRecipientGroup;
+        bytes32 public currentRecipientWeights;
+
+        function distributeRewards(address[] memory recipients, uint256[] memory weights) public {
+            bytes32 recipientGroup = hashAddresses(recipients);
+            if (recipientGroup != currentRecipientGroup) revert InvalidRecipientGroup();
+            bytes32 recipientWeights = hashWeights(weights);
+            if (recipientWeights != currentRecipientWeights) revert InvalidRecipientWeights();
+            for (uint256 i = 0; i < recipients.length; i++) { recipients[i].call(""); }
+        }
+    }
+    """
+
+    assert GasGriefingDetector().analyze("arbitrum", Path("RewardDistributor.sol"), source) == []
+
+
 def test_reverting_cross_chain_router_stub_is_not_sender_validation_signal() -> None:
     source = """
     contract GatewayRouter {
@@ -182,6 +231,25 @@ def test_reverting_bridge_token_stubs_are_not_access_control_findings() -> None:
     """
 
     assert ArbitrumBridgeDetector().analyze("fixture", Path("ReverseArbToken.sol"), source) == []
+
+
+def test_named_gateway_modifier_suppresses_bridge_access_control_signal() -> None:
+    source = """
+    contract L1ArbitrumToken {
+        modifier onlyArbOneGateway() { _; }
+
+        function bridgeMint(address account, uint256 amount)
+            public
+            onlyArbOneGateway
+        {
+            _mint(account, amount);
+        }
+
+        function _mint(address account, uint256 amount) internal {}
+    }
+    """
+
+    assert ArbitrumBridgeDetector().analyze("arbitrum", Path("L1ArbitrumToken.sol"), source) == []
 
 
 def test_ignored_optional_metadata_staticcall_status_is_detected() -> None:

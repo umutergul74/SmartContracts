@@ -130,6 +130,47 @@ source_repositories:
       - src/libraries/AddressAliasHelper.sol
       - src/libraries/MerkleLib.sol
       - src/libraries/CallerChecker.sol
+  - name: ArbitrumFoundation/governance
+    url: https://github.com/ArbitrumFoundation/governance
+    purpose: dao_governance_and_upgrade_contracts
+    default_branch: main
+    analysis_paths:
+      - src/ArbitrumDAOConstitution.sol
+      - src/ArbitrumFoundationVestingWallet.sol
+      - src/ArbitrumTimelock.sol
+      - src/ArbitrumVestingWallet.sol
+      - src/FixedDelegateErc20Wallet.sol
+      - src/L1ArbitrumMessenger.sol
+      - src/L1ArbitrumTimelock.sol
+      - src/L1ArbitrumToken.sol
+      - src/L1GovernanceFactory.sol
+      - src/L2ArbitrumGovernor.sol
+      - src/L2ArbitrumToken.sol
+      - src/L2GovernanceFactory.sol
+      - src/TokenDistributor.sol
+      - src/TransferAndCallToken.sol
+      - src/UpgradeExecRouteBuilder.sol
+      - src/Util.sol
+      - src/security-council-mgmt/SecurityCouncilManager.sol
+      - src/security-council-mgmt/SecurityCouncilMemberSyncAction.sol
+      - src/security-council-mgmt/SecurityCouncilMgmtUtils.sol
+      - src/security-council-mgmt/factories/L2SecurityCouncilMgmtFactory.sol
+      - src/security-council-mgmt/governors/SecurityCouncilMemberElectionGovernor.sol
+      - src/security-council-mgmt/governors/SecurityCouncilMemberRemovalGovernor.sol
+      - src/security-council-mgmt/governors/SecurityCouncilNomineeElectionGovernor.sol
+      - src/security-council-mgmt/governors/modules/ArbitrumGovernorProposalExpirationUpgradeable.sol
+      - src/security-council-mgmt/governors/modules/ArbitrumGovernorVotesQuorumFractionUpgradeable.sol
+      - src/security-council-mgmt/governors/modules/ElectionGovernor.sol
+      - src/security-council-mgmt/governors/modules/SecurityCouncilMemberElectionGovernorCountingUpgradeable.sol
+      - src/security-council-mgmt/governors/modules/SecurityCouncilNomineeElectionGovernorCountingUpgradeable.sol
+      - src/security-council-mgmt/governors/modules/SecurityCouncilNomineeElectionGovernorTiming.sol
+  - name: OffchainLabs/fund-distribution-contracts
+    url: https://github.com/OffchainLabs/fund-distribution-contracts
+    purpose: scoped_reward_distribution_contracts
+    default_branch: main
+    analysis_paths:
+      - src/RewardDistributor.sol
+      - src/Util.sol
 
 seed_in_scope_assets_from_immunefi_first_page:
   - IArbToken.sol

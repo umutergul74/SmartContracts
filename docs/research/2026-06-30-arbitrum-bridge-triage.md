@@ -440,6 +440,13 @@ manual review:
 Current platform implication: source acquisition should eventually persist the full
 observed asset URL list, not only digests, so missing scoped files are easier to audit.
 
+2026-07-02 follow-up: governance and fund-distribution paths were promoted into the
+committed analysis profile where the current upstream `main` source contains the scoped file.
+`ArbitrumFoundation/governance/src/UpgradeExecutor.sol` remains deliberately outside the
+configured fetch profile because the fail-closed source fetcher confirmed it is not present in
+the current `ArbitrumFoundation/governance` `main` commit. Treat it as a source/scope inventory
+mismatch for manual tracking, not as a vulnerability signal.
+
 ### Rejected / public: BOLD staking pool excess-withdrawal loss shift
 
 Status: **technically reproduced locally, but not promoted as a new bounty candidate**.
@@ -545,6 +552,62 @@ Manual validation:
 Current decision: **do not submit**. No path was found where an untrusted caller can inflate
 timer cache through an unrelated edge, confirm a wrong rival while bypassing proof/link
 checks, or refund stake before the edge reaches confirmed layer-zero status.
+
+### Rejected / expected: SecurityCouncilMemberSyncAction direct-call concern
+
+Status: **locally modeled, not promoted as a bounty candidate**.
+
+Relevant scoped path:
+
+- `ArbitrumFoundation/governance/src/security-council-mgmt/SecurityCouncilMemberSyncAction.sol`
+
+Observation:
+
+`SecurityCouncilMemberSyncAction.perform(address,address[],uint256)` is an external function that
+eventually calls a Gnosis Safe through `execTransactionFromModule`. This initially looked like a
+possible direct-call owner replacement path because `perform` itself has no caller modifier.
+
+Manual validation:
+
+- Upstream unit tests deploy the Safe with `UpgradeExecutor` as the enabled module, not the action
+  contract.
+- The security-council deployment script also passes the configured executor as the Safe module.
+- `SecurityCouncilMemberSyncAction` is documented as an action expected to be delegatecalled by an
+  Upgrade Executor.
+- `KeyValueStore` stores by `msg.sender`, and upstream tests assert nonce state under the
+  `UpgradeExecutor` address after delegatecall execution.
+- The local model at
+  `pocs/arbitrum/security-council-sync-action-direct-call` confirms the intended split:
+  executor delegatecall can update owners, while a direct call to the action fails because the Safe
+  sees the action contract, not the enabled executor module.
+
+Local validation:
+
+- `forge test --root pocs/arbitrum/security-council-sync-action-direct-call -q`
+
+Current decision: **do not submit**. Keep this as a regression note and re-check deployed Safe
+module lists if read-only RPC metadata becomes available. If a live Safe were found with the action
+contract itself enabled as a module, the conclusion would need to be revisited.
+
+### Rejected / expected: RewardDistributor public distribution loop
+
+Status: **reviewed, not promoted as a bounty candidate**.
+
+Relevant scoped path:
+
+- `OffchainLabs/fund-distribution-contracts/src/RewardDistributor.sol`
+
+Observation:
+
+`distributeRewards(address[],uint256[])` is public and loops over the supplied recipient array.
+However, the supplied arrays must hash to the currently committed recipient and weight hashes.
+The committed recipient set is only updated through `setRecipients`, which enforces
+`MAX_RECIPIENTS = 64`, equal array lengths, and total weight equal to basis points. Arbitrary
+long arrays should fail before the payout loop because their hashes do not match the committed
+group.
+
+Current decision: **do not submit**. Keep as a bounded public-maintenance function, not an
+untrusted gas-griefing path.
 
 ### Reviewed / degraded build: fund-distribution reward routers
 

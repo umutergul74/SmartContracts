@@ -75,8 +75,7 @@ def test_scope_coverage_payload_and_markdown_include_gap_queue(tmp_path) -> None
             [
                 "https://github.com/OffchainLabs/token-bridge-contracts/blob/main/"
                 "contracts/tokenbridge/arbitrum/gateway/L2GatewayRouter.sol",
-                "https://github.com/ArbitrumFoundation/governance/blob/main/"
-                "src/L2ArbitrumGovernor.sol",
+                "https://github.com/OffchainLabs/nitro-contracts/blob/main/src/rollup/RollupCore.sol",
             ]
         ),
     )
@@ -91,11 +90,11 @@ def test_scope_coverage_payload_and_markdown_include_gap_queue(tmp_path) -> None
     assert payload["schema_version"] == "scope_coverage.v1"
     assert payload["summary"]["observed_not_configured_count"] == 1
     assert (
-        "ArbitrumFoundation/governance/src/L2ArbitrumGovernor.sol"
+        "OffchainLabs/nitro-contracts/src/rollup/RollupCore.sol"
         in payload["observed_not_configured"]
     )
     assert "DRAFT / INTERNAL RESEARCH QUEUE" in markdown
-    assert "`ArbitrumFoundation/governance/src/L2ArbitrumGovernor.sol`" in markdown
+    assert "`OffchainLabs/nitro-contracts/src/rollup/RollupCore.sol`" in markdown
 
 
 def test_latest_attestation_path_ignores_coverage_artifacts(tmp_path, monkeypatch) -> None:

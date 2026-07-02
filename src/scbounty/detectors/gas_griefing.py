@@ -7,7 +7,9 @@ from scbounty.detectors.base import (
     functions_in,
     has_admin_guard,
     has_caller_guard,
+    is_initializer,
     is_publicly_callable,
+    is_read_only,
     make_finding,
 )
 
@@ -18,11 +20,24 @@ class GasGriefingDetector:
     def analyze(self, target_id: str, source_path: Path, source: str) -> list[Finding]:
         findings: list[Finding] = []
         for function in functions_in(source):
-            if not is_publicly_callable(function) or has_admin_guard(function):
+            if (
+                not is_publicly_callable(function)
+                or is_read_only(function)
+                or is_initializer(function)
+                or has_admin_guard(function)
+            ):
                 continue
             body = function.body.casefold()
             user_array = "calldata" in function.tail.casefold() or "[]" in function.parameters
             has_loop = "for (" in body or "for(" in body or "while (" in body or "while(" in body
+            committed_collection = (
+                "hashaddresses(" in body
+                and "currentrecipientgroup" in body
+                and "hashweights(" in body
+                and "currentrecipientweights" in body
+            )
+            if committed_collection:
+                continue
             if user_array and has_loop and ".length" in body:
                 caller_guarded = has_caller_guard(function)
                 findings.append(

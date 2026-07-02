@@ -5,7 +5,7 @@ rules:
     message: Bridge supply mutation requires manual gateway authorization review.
     patterns:
       - pattern-regex: '(?s)function\s+bridge(?:Mint|Burn)\s*\([^)]*\)[^{;]*\{[^}]*\}'
-      - pattern-not-regex: '(?s)function\s+bridge(?:Mint|Burn)\s*\([^)]*\)[^{;]*(?:onlyGateway|onlyBridge|onlyRole)[^{;]*\{[^}]*\}'
+      - pattern-not-regex: '(?s)function\s+bridge(?:Mint|Burn)\s*\([^)]*\)[^{;]*only\w*(?:Gateway|Bridge|Router|Role|Counterpart|Timelock)[^{;]*\{[^}]*\}'
       - pattern-not-regex: '(?s)function\s+bridge(?:Mint|Burn)\s*\([^)]*\)[^{;]*\{[^}]*require\s*\(\s*msg\.sender[^}]*\}'
       - pattern-not-regex: '(?s)function\s+bridge(?:Mint|Burn)\s*\([^)]*\)[^{;]*\{\s*(?://[^\n]*\n\s*)*revert\s*\('
     paths:

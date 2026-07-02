@@ -31,6 +31,18 @@ def test_runner_uses_argument_list_and_captures_output() -> None:
     assert result.stdout.strip() == "safe-local-run"
 
 
+def test_runner_reports_timeout_without_crashing() -> None:
+    result = run_command(
+        "python",
+        [sys.executable, "-c", "import time; time.sleep(5)"],
+        cwd=Path.cwd(),
+        timeout_seconds=1,
+    )
+
+    assert result.timed_out is True
+    assert result.exit_code is None
+
+
 def test_redaction_hides_url_credentials_and_query_secrets() -> None:
     text = "https://user:pass@example.test api_key=abc token=def"
 

@@ -97,7 +97,7 @@ and reproduced on a local fixture or local fork.
 - `src/scbounty/detectors`: conservative Arbitrum-aware source signals.
 - `src/scbounty/harness`: local harness generation.
 - `src/scbounty/reporting`: triage and draft reports.
-- `targets/arbitrum`: reviewed authorization snapshot and initial bridge profile.
+- `targets/arbitrum`: reviewed authorization snapshot and bridge/governance/fund profile.
 - `tests/fixtures/toy_bridge`: educational vulnerable and safe controls.
 
 See [architecture](docs/ARCHITECTURE.md), [local setup](docs/LOCAL_SETUP.md), and the

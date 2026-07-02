@@ -62,6 +62,8 @@ def functions_in(source: str) -> list[SolidityFunction]:
 
 def has_caller_guard(function: SolidityFunction) -> bool:
     combined = f"{function.tail}\n{function.body}".casefold()
+    if re.search(r"\bonly[a-z0-9_]*(gateway|router|bridge|counterpart|timelock)\b", combined):
+        return True
     markers = (
         "onlycounterpartgateway",
         "onlygateway",
@@ -87,6 +89,7 @@ def has_admin_guard(function: SolidityFunction) -> bool:
         marker in combined
         for marker in (
             "onlyowner",
+            "onlyrole",
             "proxyadmin",
             "msg.sender == owner",
             "msg.sender==owner",
@@ -96,9 +99,20 @@ def has_admin_guard(function: SolidityFunction) -> bool:
     )
 
 
+def is_initializer(function: SolidityFunction) -> bool:
+    return function.name.casefold() in {"initialize", "initializer"} or " initializer" in (
+        f" {function.tail.casefold()}"
+    )
+
+
 def is_publicly_callable(function: SolidityFunction) -> bool:
     tail = function.tail.casefold()
     return "external" in tail or "public" in tail
+
+
+def is_read_only(function: SolidityFunction) -> bool:
+    tail = function.tail.casefold()
+    return " view" in f" {tail}" or " pure" in f" {tail}"
 
 
 def body_without_string_literals(body: str) -> str:

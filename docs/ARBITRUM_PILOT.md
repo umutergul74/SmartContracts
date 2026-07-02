@@ -12,18 +12,23 @@ target.
 The reviewed 2026-06-30 snapshot contains a fingerprint of 181 asset rows and 13 impact rows. It is
 not permanent permission. Every real analysis performs a fresh comparison.
 
-## First analysis profile
+## Current analysis profile
 
-The initial source selection emphasizes:
+The current source selection emphasizes:
 
 - L1/L2 gateways and routers;
 - bridge mint/burn authorization;
 - counterpart and address-alias validation;
 - retryable/finalization assumptions;
 - escrow, mint, burn, WETH, and token-behavior invariants.
+- DAO/governance execution paths and token distribution contracts;
+- scoped reward-distribution contracts.
 
-Governance, challenge, staking, precompile, and upgrade surfaces remain visible in the complete
-scope fingerprint but are not broadly scanned in the first bridge-focused profile.
+Nitro rollup, challenge, staking, precompile, and OSP surfaces remain visible in the complete scope
+fingerprint. They are tracked as explicit coverage gaps until they are promoted into a reviewed
+vertical slice. A live-scope path is not added to the fetch profile when it is absent from the
+current upstream `main` source checkout; that case is kept as an inventory mismatch for manual
+review.
 
 ## Updating the snapshot
 
@@ -35,4 +40,3 @@ If the scope gate reports a mismatch:
 4. update the human snapshot and machine fingerprint together;
 5. add or update parser regression fixtures;
 6. obtain review before committing the new snapshot.
-
