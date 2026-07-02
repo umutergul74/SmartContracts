@@ -61,5 +61,7 @@ jobs:
         run: >-
           semgrep scan --config semgrep/solidity --metrics=off --no-git-ignore
           tests/fixtures/toy_bridge/src
-      - name: Run local Foundry fixture
-        run: forge test --root tests/fixtures/toy_bridge -vv
+      - name: Run local Foundry fixtures
+        run: |
+          forge test --root tests/fixtures/toy_bridge -vv
+          forge test --root tests/fixtures/retryable_alias_recovery -vv

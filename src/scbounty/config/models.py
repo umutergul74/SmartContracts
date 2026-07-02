@@ -4,7 +4,7 @@ from datetime import date, datetime
 from pathlib import Path
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, HttpUrl, model_validator
+from pydantic import BaseModel, ConfigDict, Field, HttpUrl, field_validator, model_validator
 
 Severity = Literal["info", "low", "medium", "high", "critical"]
 Confidence = Literal["low", "medium", "high"]
@@ -58,6 +58,29 @@ class SourceRepository(StrictModel):
     analysis_paths: list[str] = Field(default_factory=list)
 
 
+class ReadOnlyCallConfig(StrictModel):
+    name: str = Field(pattern=r"^[a-z][a-z0-9_]*$")
+    calldata: str
+    result_type: Literal["address", "uint256", "bool", "bytes32", "raw"] = "raw"
+    expected_value: str | None = None
+
+    @field_validator("calldata")
+    @classmethod
+    def validate_fixed_calldata(cls, value: str) -> str:
+        if not value.startswith("0x"):
+            raise ValueError("read-only call data must start with 0x")
+        payload = value[2:]
+        if len(payload) < 8 or len(payload) % 2:
+            raise ValueError("read-only call data must contain at least a four-byte selector")
+        try:
+            bytes.fromhex(payload)
+        except ValueError as exc:
+            raise ValueError("read-only call data must be hexadecimal") from exc
+        if len(payload) > 8192:
+            raise ValueError("read-only call data exceeds the 4096-byte safety limit")
+        return value.lower()
+
+
 class DeployedContractConfig(StrictModel):
     name: str
     network: str
@@ -66,6 +89,7 @@ class DeployedContractConfig(StrictModel):
     proxy_kind: Literal["auto", "eip1967", "none"] = "auto"
     expected_source_repository: str | None = None
     expected_source_path: str | None = None
+    read_only_calls: list[ReadOnlyCallConfig] = Field(default_factory=list)
 
     @model_validator(mode="after")
     def require_repository_for_expected_path(self) -> DeployedContractConfig:
@@ -309,6 +333,19 @@ class DeployedContractObservation(StrictModel):
     beacon_bytecode_sha256: str | None = None
     expected_source_repository: str | None = None
     expected_source_path: str | None = None
+    read_only_calls: list[ReadOnlyCallObservation] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+
+
+class ReadOnlyCallObservation(StrictModel):
+    name: str
+    calldata: str
+    result_type: Literal["address", "uint256", "bool", "bytes32", "raw"]
+    status: Literal["completed", "skipped", "failed"]
+    raw_result: str | None = None
+    decoded_value: str | None = None
+    expected_value: str | None = None
+    matches_expected: bool | None = None
     warnings: list[str] = Field(default_factory=list)
 
 

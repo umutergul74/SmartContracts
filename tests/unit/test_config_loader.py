@@ -24,6 +24,9 @@ def test_arbitrum_config_loads_with_required_safety_boundaries() -> None:
     assert deployed["arb_one_bridge"].network == "ethereum_l1"
     assert deployed["arb_one_bridge"].proxy_kind == "eip1967"
     assert deployed["arb_one_l2_gateway_router"].network == "arbitrum_one"
+    fast_confirmer = deployed["arb_one_rollup"].read_only_calls[0]
+    assert fast_confirmer.name == "any_trust_fast_confirmer"
+    assert fast_confirmer.result_type == "address"
 
 
 def test_scope_snapshot_is_complete_fingerprint() -> None:

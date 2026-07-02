@@ -11,7 +11,7 @@ vulnerability.
 
 - Fail-closed live comparison of the Arbitrum Immunefi scope against a reviewed snapshot.
 - Commit-pinned source acquisition for reviewed Offchain Labs repositories.
-- Block-pinned, read-only bytecode and EIP-1967 implementation/admin/beacon manifests.
+- Block-pinned, read-only bytecode, EIP-1967, and reviewed fixed-call manifests.
 - Foundry, Slither, and Semgrep adapters with versioned, structured execution records.
 - Degraded mode when optional analyzers or read-only RPC URLs are absent.
 - Conservative bridge, gateway, cross-chain sender, accounting, upgrade, and gas detectors.
@@ -103,6 +103,7 @@ and reproduced on a local fixture or local fork.
 - `src/scbounty/reporting`: triage and draft reports.
 - `targets/arbitrum`: reviewed authorization snapshot and bridge/governance/fund profile.
 - `tests/fixtures/toy_bridge`: educational vulnerable and safe controls.
+- `tests/fixtures/retryable_alias_recovery`: local EIP-7702/refund-alias recovery model.
 
 See [architecture](docs/ARCHITECTURE.md), [local setup](docs/LOCAL_SETUP.md), and the
 [Arbitrum threat model](docs/THREAT_MODEL_ARBITRUM.md).

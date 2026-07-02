@@ -74,6 +74,11 @@ deployed_contracts:
     proxy_kind: eip1967
     expected_source_repository: OffchainLabs/nitro-contracts
     expected_source_path: src/rollup/RollupProxy.sol
+    read_only_calls:
+      - name: any_trust_fast_confirmer
+        calldata: "0x55840a58"
+        result_type: address
+        expected_value: "0x0000000000000000000000000000000000000000"
   - name: arb_one_bridge
     network: ethereum_l1
     address: "0x8315177aB297bA92A06054cE80a67Ed4DBd7ed3a"

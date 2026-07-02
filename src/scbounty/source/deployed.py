@@ -11,6 +11,8 @@ from scbounty.config.models import (
     DeployedContractObservation,
     DeployedMetadataManifest,
     DeployedNetworkObservation,
+    ReadOnlyCallConfig,
+    ReadOnlyCallObservation,
     TargetConfig,
 )
 from scbounty.source.metadata import ContractMetadata, ReadOnlyRpcClient
@@ -29,21 +31,90 @@ class RpcClient(Protocol):
         block_number: int | None = None,
     ) -> ContractMetadata: ...
 
+    def read_only_call(
+        self,
+        address: str,
+        calldata: str,
+        *,
+        block_number: int | None = None,
+    ) -> str: ...
+
     def close(self) -> None: ...
 
 
 RpcClientFactory = Callable[[str], RpcClient]
-ObservationStatus = Literal["completed", "skipped", "failed"]
+UnavailableObservationStatus = Literal["skipped", "failed"]
 
 
 def _safe_rpc_error(exc: Exception) -> str:
     return f"{type(exc).__name__}: read-only RPC request failed; endpoint details redacted"
 
 
+def _decode_call_result(call: ReadOnlyCallConfig, raw_result: str) -> str:
+    if not raw_result.startswith("0x"):
+        raise ValueError("RPC call result must start with 0x")
+    payload = raw_result[2:]
+    if len(payload) % 2:
+        payload = f"0{payload}"
+    try:
+        raw = bytes.fromhex(payload)
+    except ValueError as exc:
+        raise ValueError("RPC call result is not hexadecimal") from exc
+
+    if call.result_type == "raw":
+        return f"0x{raw.hex()}"
+    if len(raw) > 32:
+        raise ValueError(f"{call.result_type} call result exceeds one ABI word")
+    word = raw.rjust(32, b"\0")
+    if call.result_type == "address":
+        return f"0x{word[-20:].hex()}"
+    if call.result_type == "uint256":
+        return str(int.from_bytes(word, "big"))
+    if call.result_type == "bool":
+        value = int.from_bytes(word, "big")
+        if value not in {0, 1}:
+            raise ValueError("boolean call result must be zero or one")
+        return "true" if value else "false"
+    return f"0x{word.hex()}"
+
+
+def _normalized_expected_value(call: ReadOnlyCallConfig) -> str | None:
+    if call.expected_value is None:
+        return None
+    expected = call.expected_value.strip()
+    if call.result_type in {"address", "bytes32", "raw"}:
+        return expected.lower()
+    if call.result_type == "bool":
+        lowered = expected.lower()
+        if lowered not in {"true", "false"}:
+            raise ValueError("expected bool value must be true or false")
+        return lowered
+    return str(int(expected, 0))
+
+
+def _unavailable_call_observations(
+    contract: DeployedContractConfig,
+    *,
+    status: Literal["skipped", "failed"],
+    warning: str,
+) -> list[ReadOnlyCallObservation]:
+    return [
+        ReadOnlyCallObservation(
+            name=call.name,
+            calldata=call.calldata,
+            result_type=call.result_type,
+            status=status,
+            expected_value=call.expected_value,
+            warnings=[warning],
+        )
+        for call in contract.read_only_calls
+    ]
+
+
 def _base_contract_observation(
     contract: DeployedContractConfig,
     *,
-    status: ObservationStatus,
+    status: UnavailableObservationStatus,
     warning: str,
 ) -> DeployedContractObservation:
     return DeployedContractObservation(
@@ -54,6 +125,11 @@ def _base_contract_observation(
         status=status,
         expected_source_repository=contract.expected_source_repository,
         expected_source_path=contract.expected_source_path,
+        read_only_calls=_unavailable_call_observations(
+            contract,
+            status=status,
+            warning=warning,
+        ),
         warnings=[warning],
     )
 
@@ -184,6 +260,7 @@ class DeployedMetadataCollector:
 
                 completed = 0
                 failed = 0
+                call_failures = 0
                 for contract in contracts:
                     try:
                         metadata = client.contract_metadata(
@@ -217,6 +294,57 @@ class DeployedMetadataCollector:
                                 "Configured as non-proxy but EIP-1967 metadata was observed"
                             )
 
+                        call_observations: list[ReadOnlyCallObservation] = []
+                        for call in contract.read_only_calls:
+                            try:
+                                raw_result = client.read_only_call(
+                                    contract.address,
+                                    call.calldata,
+                                    block_number=block_number,
+                                )
+                                decoded_value = _decode_call_result(call, raw_result)
+                                expected_value = _normalized_expected_value(call)
+                                matches_expected = (
+                                    None
+                                    if expected_value is None
+                                    else decoded_value == expected_value
+                                )
+                                call_warnings: list[str] = []
+                                if matches_expected is False:
+                                    warning = (
+                                        f"Read-only call {call.name} returned an unexpected "
+                                        "value; manual review required"
+                                    )
+                                    call_warnings.append(warning)
+                                    warnings.append(warning)
+                                call_observations.append(
+                                    ReadOnlyCallObservation(
+                                        name=call.name,
+                                        calldata=call.calldata,
+                                        result_type=call.result_type,
+                                        status="completed",
+                                        raw_result=raw_result.lower(),
+                                        decoded_value=decoded_value,
+                                        expected_value=expected_value,
+                                        matches_expected=matches_expected,
+                                        warnings=call_warnings,
+                                    )
+                                )
+                            except Exception as exc:
+                                call_failures += 1
+                                warning = _safe_rpc_error(exc)
+                                warnings.append(f"Read-only call {call.name} failed: {warning}")
+                                call_observations.append(
+                                    ReadOnlyCallObservation(
+                                        name=call.name,
+                                        calldata=call.calldata,
+                                        result_type=call.result_type,
+                                        status="failed",
+                                        expected_value=call.expected_value,
+                                        warnings=[warning],
+                                    )
+                                )
+
                         observations.append(
                             DeployedContractObservation(
                                 name=contract.name,
@@ -241,6 +369,7 @@ class DeployedMetadataCollector:
                                 beacon_bytecode_sha256=metadata["beacon_bytecode_sha256"],
                                 expected_source_repository=contract.expected_source_repository,
                                 expected_source_path=contract.expected_source_path,
+                                read_only_calls=call_observations,
                                 warnings=warnings,
                             )
                         )
@@ -262,6 +391,10 @@ class DeployedMetadataCollector:
                 if failed:
                     network_warnings.append(
                         f"{failed} configured contract metadata observation(s) failed"
+                    )
+                if call_failures:
+                    network_warnings.append(
+                        f"{call_failures} configured read-only call observation(s) failed"
                     )
                 networks.append(
                     DeployedNetworkObservation(

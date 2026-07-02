@@ -413,10 +413,11 @@ explicitly expanded**.
 
 1. Completed on 2026-07-02: add deployed-proxy metadata verification to the platform
    using read-only RPC manifests rather than ad hoc research commands.
-2. Investigate retryable refund receiver flows specifically:
-   - excess fee refund address
-   - call value refund address
-   - resend / expired retryable recovery
+2. Initial retryable refund pass completed on 2026-07-02:
+   - excess-fee and call-value refund aliasing reviewed;
+   - gateway registration resend/recovery behavior reviewed;
+   - EIP-7702 delegated-EOA recovery modeled locally;
+   - no protocol-caused permanent lock proven in this pass.
 3. Continue with Nitro using either a fixed Slither invocation or targeted Foundry/Hardhat
    harnesses, since Slither produced no JSON for Nitro in this run.
 4. Before promoting any future candidate, search both public issue trackers and bundled
@@ -1012,3 +1013,51 @@ The manifest contains no HTTP URL. During the first live run, the generic HTTP c
 logger exposed the endpoint URL in terminal output. HTTP request logging is now disabled even in
 verbose mode, with a regression test ensuring token-bearing RPC URLs cannot be printed by that
 logger.
+
+### Reviewed / not promoted: EIP-7702 retryable refund aliasing
+
+Status: **source review plus local semantic regression completed**.
+
+EIP-7702 gives an EOA a 23-byte delegation indicator, so `address.code.length` is non-zero. The
+current Inbox refund normalization therefore treats a delegated EOA like a contract and aliases
+its excess-fee and call-value refund addresses. A direct L2 transaction from the original address
+cannot satisfy a retryable beneficiary check against the aliased address.
+
+The apparent permanent-lock path is closed by the delayed Inbox flow:
+
+- Inbox delivers L1 messages with the L1 sender transformed to its L2 alias;
+- `sendContractTransaction` creates an unsigned L2 contract transaction whose sender is that
+  aliased address;
+- `ArbRetryableTx.cancel` only requires the L2 caller to equal the stored beneficiary;
+- the same delegated EOA can use `depositEth` to fund its aliased L2 address for gas before sending
+  the delayed contract transaction.
+
+The local fixture at `tests/fixtures/retryable_alias_recovery` models both paths. It verifies that a
+23-byte delegation marker causes refund aliasing, that the original address cannot directly cancel
+the ticket, that a gas-funded delayed contract transaction can cancel it from the alias, and that a
+codeless EOA remains directly controllable as the negative control.
+
+Current decision: **do not submit**. The behavior creates a non-obvious and more expensive recovery
+path for delegated EOAs, but the reviewed protocol paths do not support a permanent-freeze impact.
+
+### Reviewed / not promoted: Arbitrum One fast confirmer configuration
+
+Status: **block-pinned read-only live-state verification completed**.
+
+`RollupUserLogic.fastConfirmAssertion` and `fastConfirmNewAssertion` bypass normal assertion
+deadlines and challenge validation, but both ultimately require the caller to be the configured
+`anyTrustFastConfirmer`. The source expects this role only on an AnyTrust chain and assumes its
+holder enforces a sufficient-signature policy.
+
+At Ethereum block `25445357`, the Arbitrum One rollup proxy
+`0x4DCeB440657f21083db8aDd07665f8ddBe1DCfc0` returned the zero address from
+`anyTrustFastConfirmer()`. The high-impact fast-confirm path is therefore disabled on the reviewed
+Arbitrum One deployment.
+
+The deployed metadata collector now supports configured, fixed-calldata `eth_call` observations at
+the same pinned block as bytecode and proxy metadata. The Arbitrum target records
+`anyTrustFastConfirmer()` as an address observation with zero as the reviewed expectation. A future
+non-zero value is preserved as a manual-review warning, not automatically labeled a vulnerability.
+
+Current decision: **do not submit**. No live fast-confirmer authority exists on the reviewed
+Arbitrum One rollup.

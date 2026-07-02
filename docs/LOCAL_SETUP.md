@@ -56,8 +56,8 @@ scbounty source metadata arbitrum
 ```
 
 The command re-verifies live scope, checks each RPC chain ID, pins a block number, and records
-bytecode and EIP-1967 proxy fingerprints. It exposes no transaction, signing, wallet, or broadcast
-method and does not store the RPC URL.
+bytecode, EIP-1967 proxy fingerprints, and target-configured fixed read-only calls. It exposes no
+transaction, signing, wallet, or broadcast method and does not store the RPC URL.
 
 ## Quality checks
 

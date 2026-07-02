@@ -94,6 +94,19 @@ class ReadOnlyRpcClient:
     def block_number(self) -> int:
         return int(self._call("eth_blockNumber", []), 16)
 
+    def read_only_call(
+        self,
+        address: str,
+        calldata: str,
+        *,
+        block_number: int | None = None,
+    ) -> str:
+        observed_block = block_number if block_number is not None else self.block_number()
+        return self._call(
+            "eth_call",
+            [{"to": address, "data": calldata}, hex(observed_block)],
+        )
+
     def _code(self, address: str, block_tag: str) -> tuple[int, str]:
         return _code_fingerprint(self._call("eth_getCode", [address, block_tag]))
 

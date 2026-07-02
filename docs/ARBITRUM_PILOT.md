@@ -24,11 +24,13 @@ The current source selection emphasizes:
 - DAO/governance execution paths and token distribution contracts;
 - scoped reward-distribution contracts.
 
-Nitro rollup, challenge, staking, precompile, and OSP surfaces remain visible in the complete scope
-fingerprint. They are tracked as explicit coverage gaps until they are promoted into a reviewed
-vertical slice. A live-scope path is not added to the fetch profile when it is absent from the
-current upstream `main` source checkout; that case is kept as an inventory mismatch for manual
-review.
+Reviewed Nitro rollup, challenge, staking, precompile, state, node-interface, and OSP paths are now
+included in the exact source profile. A live-scope path is not added when it is absent from the
+current upstream `main` checkout; that case remains an inventory mismatch for manual review.
+
+The deployed profile also tracks reviewed scalar state such as the Arbitrum One rollup's
+`anyTrustFastConfirmer()` value through a block-pinned fixed `eth_call`. State drift is a
+manual-review signal, not an automatically validated finding.
 
 ## Updating the snapshot
 
