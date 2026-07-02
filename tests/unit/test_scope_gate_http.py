@@ -58,6 +58,8 @@ def test_scope_gate_writes_attestation_for_exact_live_page(tmp_path: Path) -> No
 
     assert attestation.diff.passed is True
     assert output.is_file()
+    assert attestation.observed_asset_urls == ["https://github.com/example/repo/blob/main/A.sol"]
+    assert len(attestation.observed_impacts) == 13
 
 
 def test_scope_gate_fails_closed_on_network_error(tmp_path: Path) -> None:

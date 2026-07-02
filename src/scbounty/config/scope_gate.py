@@ -216,6 +216,7 @@ class ScopeGate:
         raw_bytes = response.content
         try:
             raw = raw_bytes.decode(response.encoding or "utf-8", errors="replace")
+            observed_assets, observed_impacts = scope_fingerprint(raw)
             diff = compare_live_scope(raw, snapshot)
         except Exception as exc:
             raise ScopeVerificationError(f"Live scope parser failed closed: {exc}") from exc
@@ -241,6 +242,8 @@ class ScopeGate:
             snapshot_hash=snapshot_hash,
             live_content_hash=live_hash,
             diff=diff,
+            observed_asset_urls=observed_assets,
+            observed_impacts=observed_impacts,
         )
         if output_path is not None:
             write_model(output_path, attestation)

@@ -133,6 +133,8 @@ class ScopeAttestation(StrictModel):
     snapshot_hash: str
     live_content_hash: str
     diff: ScopeDiff
+    observed_asset_urls: list[str] = Field(default_factory=list)
+    observed_impacts: list[str] = Field(default_factory=list)
     local_static_only: Literal[True] = True
 
 

@@ -393,3 +393,92 @@ explicitly expanded**.
    harnesses, since Slither produced no JSON for Nitro in this run.
 4. Before promoting any future candidate, search both public issue trackers and bundled
    audit PDFs for exact source-path/root-cause matches.
+
+## 2026-07-02 scope expansion notes
+
+### Live scope inventory beyond the bridge pilot
+
+A fresh live scope parse still observed 181 Solidity asset URLs. The bridge/gateway
+pilot profile covers the 43 scoped `OffchainLabs/token-bridge-contracts` paths and the
+bridge-focused Nitro files, but the live program also includes Nitro rollup, challenge,
+assertion staking pool, governance, and fund-distribution contracts.
+
+Two live scope URLs were not present in the current shallow `main` checkouts used for
+manual review:
+
+- `OffchainLabs/nitro-contracts/src/rollup/Node.sol`
+- `ArbitrumFoundation/governance/src/UpgradeExecutor.sol`
+
+Current platform implication: source acquisition should eventually persist the full
+observed asset URL list, not only digests, so missing scoped files are easier to audit.
+
+### Rejected / public: BOLD staking pool excess-withdrawal loss shift
+
+Status: **technically reproduced locally, but not promoted as a new bounty candidate**.
+
+Relevant scoped paths:
+
+- `OffchainLabs/nitro-contracts/src/assertionStakingPool/AbsBoldStakingPool.sol`
+- `OffchainLabs/nitro-contracts/src/assertionStakingPool/AssertionStakingPool.sol`
+- `OffchainLabs/nitro-contracts/src/assertionStakingPool/EdgeStakingPool.sol`
+- `OffchainLabs/nitro-contracts/src/challengeV2/EdgeChallengeManager.sol`
+
+Observation:
+
+`AbsBoldStakingPool` keeps per-depositor accounting while the actual required stake is
+sent out as a pool-level token balance. Upstream tests intentionally allow an excess
+depositor to withdraw available pool balance after a protocol move has already consumed
+the required stake. If that required stake is later treated as lost, the excess withdrawer
+has recovered while the required-stake contributors remain unpaid.
+
+Local proof:
+
+- Persisted note and reference test:
+  `pocs/arbitrum/bold-staking-pool-loss-shift/`
+- Executed cache test:
+  `test/foundry/researchAbsBoldStakingPoolLossShift.t.sol`
+- Command:
+  `FOUNDRY_PROFILE=test forge test --root .scbounty/cache/sources/arbitrum/OffchainLabs-nitro-contracts --force --match-contract ResearchAbsBoldStakingPoolLossShiftTest -vv`
+- Result:
+  `1 passed`
+
+Rejection / duplicate risk:
+
+- The upstream `AbsBoldStakingPool.t.sol::testPartialWithdraw` already encodes early
+  excess withdrawal after a protocol move as intended behavior.
+- Code4rena validation issue `#64` publicly discusses `AbsBoldStakingPool.withdrawFromPool`.
+- Code4rena findings issue `#49` publicly discusses `EdgeChallengeManager` stake token /
+  stake amount changes causing user/pool fund loss and mentions `withdrawFromPool`
+  failure modes.
+
+Current decision: **do not submit**. Keep as a regression/research note unless a separate,
+non-public path is proven where an untrusted actor can force another participant into this
+loss state without consent.
+
+### Rejected / expected: DVP quorum delegation estimate edge cases
+
+Status: **reviewed, not promoted as a bounty candidate**.
+
+Relevant scoped paths:
+
+- `ArbitrumFoundation/governance/src/L2ArbitrumToken.sol`
+- `ArbitrumFoundation/governance/src/L2ArbitrumGovernor.sol`
+
+Observation:
+
+`L2ArbitrumToken.getTotalDelegationAt` is explicitly documented as an initially estimated
+total-delegation history. `L2ArbitrumGovernor.getPastTotalDelegatedVotes` also documents
+the possible `excluded > totalDvp` case and clamps that result to zero. The actual quorum
+calculation then clamps the DVP-derived quorum between checkpointed minimum and maximum
+quorum values.
+
+Manual validation:
+
+- `L2ArbitrumGovernor.t.sol::testPastCirculatingSupplyMint` checks that minting affects
+  circulating supply but not the DVP quorum calculation.
+- `L2ArbitrumGovernor.t.sol` also checks minimum/maximum quorum clamp behavior around the
+  DVP start block.
+
+Current decision: **do not submit**. The reviewed behavior is both documented in source and
+covered by upstream tests; no untrusted path was found to lower quorum below the configured
+minimum or bypass the proposal/voting snapshot model.
