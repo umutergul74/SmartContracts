@@ -447,6 +447,58 @@ configured fetch profile because the fail-closed source fetcher confirmed it is 
 the current `ArbitrumFoundation/governance` `main` commit. Treat it as a source/scope inventory
 mismatch for manual tracking, not as a vulnerability signal.
 
+2026-07-02 follow-up: Nitro rollup, challenge, assertion-staking-pool, OSP, state,
+node-interface, and precompile paths that exist in the current upstream checkout were promoted
+into the committed analysis profile. Current coverage from the live attestation:
+
+- observed smart-contract asset rows: 181
+- GitHub blob assets: 170
+- configured exact source matches: 168
+- intentionally unconfigured GitHub gaps:
+  - `OffchainLabs/nitro-contracts/src/rollup/Node.sol`
+  - `ArbitrumFoundation/governance/src/UpgradeExecutor.sol`
+
+Expanded source fetch passed with 168 selected files:
+
+- `OffchainLabs/token-bridge-contracts`: 43 files at `0746a71321cd`
+- `OffchainLabs/nitro-contracts`: 94 files at `674873332025`
+- `ArbitrumFoundation/governance`: 29 files at `ae6cf85b88e8`
+- `OffchainLabs/fund-distribution-contracts`: 2 files at `6f2eed33e999`
+
+Detector and Semgrep calibration reduced the expanded Semgrep/internal review queue from 10 to
+5 findings by suppressing:
+
+- Nitro `RollupAdminLogic` admin-only loops routed through `AdminFallbackProxy`;
+- internal or read-only initializer-like helpers;
+- `RollupProxy.initializeProxy`, which only initializes when admin, primary implementation, and
+  secondary implementation slots are all empty.
+
+Latest expanded Semgrep/internal run:
+
+`artifacts/runs/arbitrum-20260702T123217535994Z-09cde4fe`
+
+Latest expanded full safe run:
+
+`artifacts/runs/arbitrum-20260702T123722341523Z-09cde4fe`
+
+- Foundry completed for buildable upstream profiles and returned structured failures for profiles
+  with unresolved upstream dependency/build state.
+- Slither returned structured timeout/failure results rather than aborting the pipeline.
+- Semgrep completed with the calibrated local rules.
+- Optional tools remained honest structured skips when not installed.
+- Final review queue remained 5 findings.
+
+Remaining review-only findings:
+
+- `SecurityCouncilMemberSyncAction.perform` public array loop - already locally modeled and
+  rejected as a direct-call owner replacement path.
+- `L2GatewayRouter.setGateway` and `L2CustomGateway.registerTokenFromL1` counterpart-gated array
+  loops - still low-priority liveness review only.
+- `L1ERC20Gateway.callStatic` optional metadata revert lock - technically reproduced but public
+  duplicate.
+- `EdgeChallengeManager.multiUpdateTimeCacheByChildren` public timer-cache batching loop - manually
+  reviewed below and not promoted.
+
 ### Rejected / public: BOLD staking pool excess-withdrawal loss shift
 
 Status: **technically reproduced locally, but not promoted as a new bounty candidate**.
@@ -552,6 +604,22 @@ Manual validation:
 Current decision: **do not submit**. No path was found where an untrusted caller can inflate
 timer cache through an unrelated edge, confirm a wrong rival while bypassing proof/link
 checks, or refund stake before the edge reaches confirmed layer-zero status.
+
+2026-07-02 follow-up: the expanded detector run specifically flagged
+`EdgeChallengeManager.multiUpdateTimeCacheByChildren(bytes32[],uint256)` because it loops over a
+caller-supplied edge list. Manual review did not find an exploit path:
+
+- the batching helper first checks that the last edge's current timer cache is still below the
+  requested maximum;
+- each per-edge update derives the new cache only from `timeUnrivaledTotal`, i.e. the edge's own
+  time-unrivaled plus the minimum of its stored lower/upper child timer caches;
+- `confirmEdgeByTime` recomputes the total inherited time, checks the challenge-period threshold,
+  requires the edge to be pending, and records a single confirmed rival for the mutual id;
+- malformed or overlong arrays only affect the caller's own transaction gas and revert without
+  persistent partial state if execution runs out of gas.
+
+Current decision remains **do not submit**. Keep the signal as a public batching/liveness review
+case, not as a validated bug.
 
 ### Rejected / expected: SecurityCouncilMemberSyncAction direct-call concern
 

@@ -61,9 +61,9 @@ def test_compare_target_scope_coverage_counts_exact_profile_matches() -> None:
 
     assert coverage.observed_asset_count == 2
     assert coverage.github_blob_asset_count == 2
-    assert coverage.exact_match_count == 1
+    assert coverage.exact_match_count == 2
     assert coverage.repositories["OffchainLabs/token-bridge-contracts"] == (1, 43, 1)
-    assert coverage.repositories["OffchainLabs/nitro-contracts"] == (1, 15, 0)
+    assert coverage.repositories["OffchainLabs/nitro-contracts"] == (1, 94, 1)
 
 
 def test_scope_coverage_payload_and_markdown_include_gap_queue(tmp_path) -> None:
@@ -75,7 +75,7 @@ def test_scope_coverage_payload_and_markdown_include_gap_queue(tmp_path) -> None
             [
                 "https://github.com/OffchainLabs/token-bridge-contracts/blob/main/"
                 "contracts/tokenbridge/arbitrum/gateway/L2GatewayRouter.sol",
-                "https://github.com/OffchainLabs/nitro-contracts/blob/main/src/rollup/RollupCore.sol",
+                "https://github.com/OffchainLabs/nitro-contracts/blob/main/src/rollup/Node.sol",
             ]
         ),
     )
@@ -89,12 +89,9 @@ def test_scope_coverage_payload_and_markdown_include_gap_queue(tmp_path) -> None
 
     assert payload["schema_version"] == "scope_coverage.v1"
     assert payload["summary"]["observed_not_configured_count"] == 1
-    assert (
-        "OffchainLabs/nitro-contracts/src/rollup/RollupCore.sol"
-        in payload["observed_not_configured"]
-    )
+    assert "OffchainLabs/nitro-contracts/src/rollup/Node.sol" in payload["observed_not_configured"]
     assert "DRAFT / INTERNAL RESEARCH QUEUE" in markdown
-    assert "`OffchainLabs/nitro-contracts/src/rollup/RollupCore.sol`" in markdown
+    assert "`OffchainLabs/nitro-contracts/src/rollup/Node.sol`" in markdown
 
 
 def test_latest_attestation_path_ignores_coverage_artifacts(tmp_path, monkeypatch) -> None:

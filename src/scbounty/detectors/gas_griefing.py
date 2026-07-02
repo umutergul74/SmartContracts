@@ -7,6 +7,7 @@ from scbounty.detectors.base import (
     functions_in,
     has_admin_guard,
     has_caller_guard,
+    is_double_logic_proxy_admin_source,
     is_initializer,
     is_publicly_callable,
     is_read_only,
@@ -19,12 +20,14 @@ class GasGriefingDetector:
 
     def analyze(self, target_id: str, source_path: Path, source: str) -> list[Finding]:
         findings: list[Finding] = []
+        proxy_admin_routed = is_double_logic_proxy_admin_source(source)
         for function in functions_in(source):
             if (
                 not is_publicly_callable(function)
                 or is_read_only(function)
                 or is_initializer(function)
                 or has_admin_guard(function)
+                or proxy_admin_routed
             ):
                 continue
             body = function.body.casefold()

@@ -73,6 +73,25 @@ def test_admin_and_internal_loops_are_not_public_gas_griefing_signals() -> None:
     assert GasGriefingDetector().analyze("fixture", Path("AdminBatching.sol"), source) == []
 
 
+def test_double_logic_proxy_admin_loops_are_not_public_gas_griefing_signals() -> None:
+    source = """
+    contract RollupAdminLogic is DoubleLogicUUPSUpgradeable {
+        function setValidator(address[] calldata validators, bool[] calldata values) external {
+            for (uint256 i = 0; i < validators.length; i++) { values[i]; }
+        }
+
+        function forceRefundStaker(address[] calldata stakers) external {
+            for (uint256 i = 0; i < stakers.length; i++) { stakers[i]; }
+        }
+
+        function _authorizeUpgrade(address) internal override {}
+        function _authorizeSecondaryUpgrade(address) internal override {}
+    }
+    """
+
+    assert GasGriefingDetector().analyze("arbitrum", Path("RollupAdminLogic.sol"), source) == []
+
+
 def test_read_only_initializer_and_role_guarded_loops_are_not_gas_griefing_signals() -> None:
     source = """
     contract GovernanceHelpers {
@@ -169,6 +188,41 @@ def test_known_arbitrum_guarded_initializer_delegation_is_suppressed() -> None:
     """
 
     assert UpgradeabilityDetector().analyze("fixture", Path("L2ERC20Gateway.sol"), source) == []
+
+
+def test_read_only_and_internal_initializers_are_not_upgradeability_signals() -> None:
+    source = """
+    contract Rollup {
+        function initialize(address stakeToken) external view onlyProxy {
+            require(stakeToken != address(0), "NEED_STAKE_TOKEN");
+        }
+
+        function initializeCore(bytes32 genesisHash) internal {
+            latestConfirmed = genesisHash;
+        }
+    }
+    """
+
+    assert UpgradeabilityDetector().analyze("arbitrum", Path("Rollup.sol"), source) == []
+
+
+def test_double_logic_proxy_empty_slot_guard_suppresses_initializer_signal() -> None:
+    source = """
+    contract RollupProxy {
+        function initializeProxy(Config memory config) external {
+            if (
+                _getAdmin() == address(0) && _getImplementation() == address(0)
+                    && _getSecondaryImplementation() == address(0)
+            ) {
+                _initialize(config.owner);
+            } else {
+                _fallback();
+            }
+        }
+    }
+    """
+
+    assert UpgradeabilityDetector().analyze("arbitrum", Path("RollupProxy.sol"), source) == []
 
 
 def test_known_arbitrum_guarded_token_initializer_delegation_is_suppressed() -> None:

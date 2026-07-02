@@ -115,6 +115,15 @@ def is_read_only(function: SolidityFunction) -> bool:
     return " view" in f" {tail}" or " pure" in f" {tail}"
 
 
+def is_double_logic_proxy_admin_source(source: str) -> bool:
+    lowered = source.casefold()
+    return (
+        "doublelogicuupsupgradeable" in lowered
+        and "function _authorizeupgrade" in lowered
+        and "function _authorizesecondaryupgrade" in lowered
+    )
+
+
 def body_without_string_literals(body: str) -> str:
     return re.sub(r'"[^"]*"|\'[^\']*\'', '""', body)
 

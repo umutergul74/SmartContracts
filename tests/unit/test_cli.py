@@ -100,7 +100,7 @@ def test_scope_coverage_json_and_markdown_outputs(tmp_path) -> None:
             observed_asset_urls=[
                 "https://github.com/OffchainLabs/token-bridge-contracts/blob/main/"
                 "contracts/tokenbridge/arbitrum/gateway/L2GatewayRouter.sol",
-                "https://github.com/OffchainLabs/nitro-contracts/blob/main/src/rollup/RollupCore.sol",
+                "https://github.com/OffchainLabs/nitro-contracts/blob/main/src/rollup/Node.sol",
             ],
             observed_impacts=["Direct theft of user funds"],
         ),
@@ -136,10 +136,7 @@ def test_scope_coverage_json_and_markdown_outputs(tmp_path) -> None:
     assert json_result.exit_code == 0
     payload = json.loads(json_result.stdout)
     assert payload["summary"]["observed_not_configured_count"] == 1
-    assert (
-        "OffchainLabs/nitro-contracts/src/rollup/RollupCore.sol"
-        in payload["observed_not_configured"]
-    )
+    assert "OffchainLabs/nitro-contracts/src/rollup/Node.sol" in payload["observed_not_configured"]
     assert markdown_result.exit_code == 0
     assert "Wrote scope coverage Markdown" in markdown_result.stdout
     assert "DRAFT / INTERNAL RESEARCH QUEUE" in markdown_path.read_text(encoding="utf-8")

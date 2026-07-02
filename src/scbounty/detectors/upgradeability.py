@@ -3,7 +3,13 @@ from __future__ import annotations
 from pathlib import Path
 
 from scbounty.config.models import Finding
-from scbounty.detectors.base import SolidityFunction, functions_in, make_finding
+from scbounty.detectors.base import (
+    SolidityFunction,
+    functions_in,
+    is_publicly_callable,
+    is_read_only,
+    make_finding,
+)
 
 
 class UpgradeabilityDetector:
@@ -13,7 +19,11 @@ class UpgradeabilityDetector:
         findings: list[Finding] = []
         functions = functions_in(source)
         for function in functions:
-            if function.name.casefold().startswith("initialize"):
+            if (
+                function.name.casefold().startswith("initialize")
+                and is_publicly_callable(function)
+                and not is_read_only(function)
+            ):
                 if _has_initializer_guard(function) or _delegates_to_known_guarded_initializer(
                     function
                 ):
@@ -66,6 +76,16 @@ def _has_initializer_guard(function: SolidityFunction) -> bool:
     tail = function.tail.casefold()
     body = function.body.casefold()
     combined = f"{tail}\n{body}"
+    has_double_logic_empty_slot_guard = all(
+        marker in body
+        for marker in (
+            "_getadmin() == address(0)",
+            "_getimplementation() == address(0)",
+            "_getsecondaryimplementation() == address(0)",
+        )
+    )
+    if has_double_logic_empty_slot_guard:
+        return True
     return any(
         marker in combined
         for marker in (

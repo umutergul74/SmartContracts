@@ -5,9 +5,11 @@ rules:
     message: Initializer-like entry point requires one-time guard review.
     patterns:
       - pattern-regex: '(?s)function\s+initialize\w*\s*\([^)]*\)[^{;]*\{'
+      - pattern-not-regex: '(?s)function\s+initialize\w*\s*\([^)]*\)[^{;]*(?:internal|private|view|pure)[^{;]*\{'
       - pattern-not-regex: '(?s)function\s+initialize\w*\s*\([^)]*\)[^{;]*(?:initializer|reinitializer)[^{;]*\{'
       - pattern-not-regex: '(?s)function\s+initialize\w*\s*\([^)]*\)[^{;]*\{[^}]*(?:AlreadyInit|ALREADY_INIT|already initialized|already initialized)[^}]*\}'
       - pattern-not-regex: '(?s)function\s+initialize\w*\s*\([^)]*\)[^{;]*\{[^}]*!=\s*(?:I\w+\()?address\(0\)\)?\s*\)\s*revert[^}]*\}'
       - pattern-not-regex: '(?s)function\s+initialize\w*\s*\([^)]*\)[^{;]*\{[^}]*(?:TokenGateway|L1ArbitrumGateway|L2ArbitrumGateway|GatewayRouter|L2GatewayToken)\._initialize\s*\([^}]*\}'
+      - pattern-not-regex: '(?s)function\s+initialize\w*\s*\([^)]*\)[^{;]*\{[^}]*_getAdmin\(\)\s*==\s*address\(0\)[^}]*_getImplementation\(\)\s*==\s*address\(0\)[^}]*_getSecondaryImplementation\(\)\s*==\s*address\(0\)[^}]*\}'
     paths:
       include: ["**/*.sol"]
