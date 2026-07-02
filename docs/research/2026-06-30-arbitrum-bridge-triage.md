@@ -488,6 +488,14 @@ Latest expanded full safe run:
 - Optional tools remained honest structured skips when not installed.
 - Final review queue remained 5 findings.
 
+Fresh live scope re-check:
+
+`artifacts/scope/arbitrum/20260702T125452Z.json`
+
+- Scope gate passed.
+- Scope hash remained
+  `e22d5a917fa11afcd863cc070a994a640856bf66d82245c97c884d08f542d6ce`.
+
 Remaining review-only findings:
 
 - `SecurityCouncilMemberSyncAction.perform` public array loop - already locally modeled and
@@ -719,3 +727,215 @@ Local validation:
 Current decision: **do not submit**. The reviewed public-call surfaces are intentional and
 covered by existing validation; no unauthorized withdrawal, redirect, or accounting-bypass path
 was found in the scoped source.
+
+### Reviewed / not promoted: expanded Nitro public surface sweep
+
+Status: **manual review completed for this pass; no validated bug candidate yet**.
+
+This pass enumerated public/external mutating functions in the configured Nitro scope only. The
+cache contains additional imported files such as `DeployHelper.sol`, `ValidatorWallet.sol`, and
+`BOLDUpgradeAction.sol`, but those files are not currently direct live-scope/profile entries.
+They were considered only where reachable through a scoped entrypoint.
+
+Scoped surfaces reviewed:
+
+- `src/rollup/RollupCreator.sol`
+- `src/rollup/BridgeCreator.sol`
+- `src/rollup/ValidatorWalletCreator.sol`
+- `src/rollup/RollupUserLogic.sol`
+- `src/challengeV2/EdgeChallengeManager.sol`
+- `src/assertionStakingPool/*`
+- scoped precompile ABI files
+
+#### `BridgeCreator.createBridge`
+
+`BridgeCreator.createBridge(...)` is external and permissionless. Manual review did not find a
+shared-state or shared-funds exploit: it deploys fresh proxy instances using a salt derived from
+`msg.data` and `msg.sender`, initializes those fresh contracts, and returns the created frame.
+Direct callers can create their own bridge frames, but do not gain control over an existing
+rollup's bridge contracts.
+
+Current decision: **do not submit**. Treat it as a public factory surface, not an authorization
+bypass.
+
+#### `RollupCreator.createRollup`
+
+`RollupCreator.createRollup(...)` is also public. A same-parameter front-run would create the same
+rollup address, but the resulting `UpgradeExecutor` executor/owner is still derived from the
+supplied `deployParams.config.owner`, not from the front-runner. Different owner/config values
+change the CREATE2 salt and therefore the address.
+
+The ETH factory-deployment path refunds `address(this).balance` to `msg.sender` after funding the
+deterministic L2 factory retryables. This can sweep ambient ETH accidentally or forcibly sent to
+`RollupCreator`, but no normal reviewed path was found where another user's escrowed or committed
+funds become ambient creator balance. The custom-fee-token path intentionally prefunds the Inbox
+and then relies on the ERC20 Inbox prefund behavior already reviewed above.
+
+Current decision: **do not submit**. Keep as a factory/refund hardening note only; no concrete
+program impact was proven.
+
+#### `ValidatorWalletCreator.createWallet`
+
+`ValidatorWalletCreator.createWallet(...)` deploys a new wallet proxy for `msg.sender`, sets the
+caller as both executor and owner, and transfers the proxy admin ownership to that caller. The
+created wallet can make arbitrary calls only under its own owner/executor/destination allowlist
+model.
+
+Current decision: **do not submit**. This is a self-owned wallet factory, not a cross-user or
+protocol asset-control bypass in the scoped source.
+
+#### `RollupUserLogic.fastConfirmNewAssertion`
+
+`fastConfirmNewAssertion(...)` is intentionally powerful. The source explicitly says the protocol
+trusts `anyTrustFastConfirmer` not to call it multiple times on the same predecessor because that
+would break loser-stake accounting assumptions. Manual review found this is gated to exactly
+`msg.sender == anyTrustFastConfirmer`; `RollupCreator` test/default configs set
+`anyTrustFastConfirmer` to `address(0)` unless an AnyTrust deployment explicitly configures one.
+
+Current decision: **do not submit** without deployed metadata proving a non-zero fast confirmer
+whose own authorization/threshold logic is weak. If read-only deployment metadata later discovers
+a live non-zero `anyTrustFastConfirmer`, review that contract as a separate high-priority target.
+
+#### Scoped precompile ABI files
+
+The scoped precompile Solidity files primarily describe ArbOS precompile ABIs and documented
+access-control expectations. Examples include `ArbOwner` owner-only methods, `ArbDebug` debug-mode
+methods, `ArbRetryableTx` retryable management, and `ArbSys` L2-to-L1 send helpers. These files
+are not full ArbOS implementation source, so ABI-level public functions alone are insufficient
+evidence for an exploit claim.
+
+Current decision: **do not submit** from ABI shape alone. Future work should map any precompile
+concern to actual ArbOS implementation semantics or read-only deployed behavior before promotion.
+
+### Reviewed / not promoted: governance and Security Council election surface sweep
+
+Status: **manual review completed for this pass; no validated bug candidate yet**.
+
+Relevant scoped paths:
+
+- `ArbitrumFoundation/governance/src/L2ArbitrumGovernor.sol`
+- `ArbitrumFoundation/governance/src/L1ArbitrumTimelock.sol`
+- `ArbitrumFoundation/governance/src/ArbitrumTimelock.sol`
+- `ArbitrumFoundation/governance/src/security-council-mgmt/SecurityCouncilManager.sol`
+- `ArbitrumFoundation/governance/src/security-council-mgmt/governors/SecurityCouncilNomineeElectionGovernor.sol`
+- `ArbitrumFoundation/governance/src/security-council-mgmt/governors/SecurityCouncilMemberElectionGovernor.sol`
+- `ArbitrumFoundation/governance/src/security-council-mgmt/governors/SecurityCouncilMemberRemovalGovernor.sol`
+- `ArbitrumFoundation/governance/src/security-council-mgmt/governors/modules/*ElectionGovernor*`
+
+#### Security Council nominee/member election flow
+
+The nominee phase requires contenders to sign an EIP-712 `AddContenderMessage(uint256 proposalId)`
+before a relayer can register them. Nominee voting lets a voter split snapshot voting power across
+contenders, and only the exact amount required to reach the nomination threshold is consumed when a
+candidate crosses the threshold. The member-election phase then lets voters split voting power
+across compliant nominees, with weights decreasing after `fullWeightDuration`.
+
+Reviewed candidate: member election has zero quorum and `selectTopNominees()` uses packed
+`weight,index` ordering as a deterministic tie-breaker. In a no-vote or equal-vote member election,
+nominee ordering can decide winners. This is not a fresh submission candidate in this pass:
+
+- the behavior is already covered in the repository's public Code4rena report as `N-02` / tie
+  handling documentation;
+- `topNominees()` gas/stuck concerns are also publicly covered as `N-05`;
+- the repository tests explicitly assert the packed sorting behavior;
+- no new path was found for an untrusted caller to become a compliant nominee without either
+  crossing the nominee threshold or being included by the trusted nominee vetter.
+
+Current decision: **do not submit**. Keep as a known election-design/tie-break note, not a new
+bounty candidate.
+
+#### Security Council manager and removal governor
+
+`SecurityCouncilManager` mutating operations are role-gated (`COHORT_REPLACER`,
+`MEMBER_ADDER`, `MEMBER_REPLACER`, `MEMBER_ROTATOR`, `MEMBER_REMOVER`, and admin). The removal
+governor restricts proposals to exactly `SecurityCouncilManager.removeMember(address)` with one
+target, zero value, expected calldata length, and an existing member.
+
+Previously disclosed governance-design concerns remain visible in source/audit history, including
+security council replacement race conditions and the ability for authorized council paths to add a
+previously removed member. These are public Code4rena findings/design acknowledgements rather than
+new code-level exploit candidates.
+
+Current decision: **do not submit**. No fresh untrusted role bypass or manager state-corruption
+path was found in this pass.
+
+#### Governor relay, quorum, and timelock routing
+
+`L2ArbitrumGovernor.relay` and the Security Council governor `relay` functions are owner-only and
+are part of the round-trip governance design. `L2ArbitrumGovernor.cancel` is limited to the stored
+proposer and only while pending. DVP quorum is clamped between checkpointed minimum/maximum values
+after `postUpgradeInit`, while pre-DVP blocks use circulating-supply quorum.
+
+`L1ArbitrumTimelock` scheduling is limited to messages proven to originate from the L2 timelock via
+the governance-chain bridge/outbox sender. The retryable-ticket branch can leave tiny surplus ETH
+or route fee refunds according to the scheduled payload/caller, but this behavior is documented in
+the code/audit notes and no unauthorized scheduling path was found.
+
+Current decision: **do not submit**. Treat as privileged governance/timelock design surface unless
+deployed roles or scheduled payloads show a concrete mismatch.
+
+### Reviewed / not promoted: L1 ARB token Nova registration public entrypoint
+
+Status: **source review plus read-only live metadata check completed**.
+
+Relevant scoped paths:
+
+- `ArbitrumFoundation/governance/src/L1ArbitrumToken.sol`
+- `OffchainLabs/token-bridge-contracts/contracts/tokenbridge/ethereum/gateway/L1CustomGateway.sol`
+- `OffchainLabs/token-bridge-contracts/contracts/tokenbridge/ethereum/gateway/L1GatewayRouter.sol`
+- `OffchainLabs/token-bridge-contracts/contracts/tokenbridge/arbitrum/gateway/L2CustomGateway.sol`
+
+Observation:
+
+`L1ArbitrumToken.registerTokenOnL2(...)` is public and forwards caller-supplied Nova token
+registration parameters to the fixed Nova custom gateway and router. A first-call race would matter
+if the L1 token had no custom-gateway mapping yet, because the L1 gateway locks the initial
+`l1ToL2Token[msg.sender]` address and rejects later updates to a different L2 token address.
+
+Bridge-side review found the important guard:
+
+- `L1CustomGateway._registerTokenToL2` checks `isArbitrumEnabled()` on `msg.sender`;
+- if `l1ToL2Token[msg.sender]` is already non-zero, a different `_l2Address` reverts with
+  `NO_UPDATE_TO_DIFFERENT_ADDR`;
+- `L1GatewayRouter._setGatewayWithCreditBack` similarly prevents changing a non-default gateway to
+  a different gateway;
+- L2 registration is only accepted by `L2CustomGateway.registerTokenFromL1` from the aliased L1
+  counterpart gateway.
+
+Read-only live check on 2026-07-02 using public RPC:
+
+- L1 ARB token `0xB50721BCf8d664c30412Cfbc6cf7a15145234ad1`
+- `novaGateway()` = `0x23122da8C581AA7E0d07A36Ff1f16F799650232f`
+- `novaRouter()` = `0xC840838Bc438d73C16c2f8b22D2Ce3669963cD48`
+- `arbOneGateway()` = `0xbbcE8aA77782F13D4202a230d978F361B011dB27`
+- Nova gateway `l1ToL2Token(L1_ARB)` = `0xf823C3cD3CeBE0a1fA952ba88Dc9EEf8e0Bf46AD`
+- Nova router `l1TokenToGateway(L1_ARB)` = `0x23122da8C581AA7E0d07A36Ff1f16F799650232f`
+- Arb One reverse gateway `l1ToL2Token(L1_ARB)` = `0x912CE59144191C1204E64559FE8253a0e49E6548`
+- Nova token `l1Address()` = `0xB50721BCf8d664c30412Cfbc6cf7a15145234ad1`
+
+The live mappings match the repository's `files/mainnet/deployedContracts.json` and verifier
+expectations. The remaining issue class is a deployment-time/ambient-ETH hardening note, not a
+current exploit path: if ETH is accidentally left on the L1 token contract, a public caller could
+attempt same-address re-registration with their own retryable refund receiver, but this would only
+move accidental/ambient ETH and does not modify the live token mapping.
+
+Current decision: **do not submit**. Registration mapping is already set correctly on live
+contracts; no current token-hijack path was proven.
+
+### Reviewed / not promoted: vesting wallet and TokenDistributor privileged flows
+
+Status: **manual review completed for this pass**.
+
+`TokenDistributor.claim`, `claimAndDelegate`, and `sweep` were rechecked. `claimAndDelegate` reverts
+the claim if delegation fails, avoiding a partial claim/delegate stuck state. `sweep` is limited to
+after `claimPeriodEnd` and sends leftovers to the configured sweep receiver before selfdestructing.
+Recipient updates and sweep receiver changes are owner-only.
+
+`ArbitrumFoundationVestingWallet` lets the current beneficiary or DAO owner set the beneficiary,
+and only the beneficiary can release vested ETH/tokens. DAO-only migration can move all wallet
+balances to a contract destination. The internal `_setBeneficiary` does not reject zero addresses,
+but the callable path is limited to the current beneficiary or owner; this is a self-brick/DAO-action
+risk rather than an untrusted theft path.
+
+Current decision: **do not submit**. No unauthorized claim, release, sweep, or migration path was
+found.
