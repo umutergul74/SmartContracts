@@ -12,7 +12,7 @@ __pycache__/
 *.py[cod]
 *.egg-info/
 .pytest_cache/
-.testtmp/
+.testtmp*/
 .mypy_cache/
 .ruff_cache/
 .coverage

@@ -49,6 +49,16 @@ key, mnemonic, keystore, wallet password, or funded account is required or suppo
 Without RPC URLs, scope checking, source acquisition, static analysis, local fixtures, and report
 generation remain available. Deployed metadata and local-fork tests are skipped.
 
+Capture a safe deployed snapshot after configuring the desired endpoints:
+
+```powershell
+scbounty source metadata arbitrum
+```
+
+The command re-verifies live scope, checks each RPC chain ID, pins a block number, and records
+bytecode and EIP-1967 proxy fingerprints. It exposes no transaction, signing, wallet, or broadcast
+method and does not store the RPC URL.
+
 ## Quality checks
 
 ```powershell
@@ -59,4 +69,3 @@ pytest --cov=scbounty --cov-report=term-missing
 semgrep scan --validate --config semgrep/solidity
 scbounty test arbitrum --kind invariant --local-only
 ```
-

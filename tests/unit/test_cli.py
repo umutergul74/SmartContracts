@@ -4,7 +4,13 @@ from datetime import UTC, datetime
 from typer.testing import CliRunner
 
 from scbounty.cli import app
-from scbounty.config.models import ScopeAttestation, ScopeDiff
+from scbounty.config.models import (
+    DeployedContractObservation,
+    DeployedMetadataManifest,
+    DeployedNetworkObservation,
+    ScopeAttestation,
+    ScopeDiff,
+)
 from scbounty.utils.serialization import write_model
 
 runner = CliRunner()
@@ -140,3 +146,67 @@ def test_scope_coverage_json_and_markdown_outputs(tmp_path) -> None:
     assert markdown_result.exit_code == 0
     assert "Wrote scope coverage Markdown" in markdown_result.stdout
     assert "DRAFT / INTERNAL RESEARCH QUEUE" in markdown_path.read_text(encoding="utf-8")
+
+
+def test_source_metadata_prints_structured_read_only_result(monkeypatch) -> None:
+    attestation = ScopeAttestation(
+        attestation_id="scope-test",
+        target_id="arbitrum",
+        verified_at_utc=datetime.now(UTC),
+        scope_url="https://immunefi.com/bug-bounty/arbitrum/scope/",
+        snapshot_hash="a" * 64,
+        live_content_hash="b" * 64,
+        diff=ScopeDiff(
+            passed=True,
+            expected_asset_count=1,
+            observed_asset_count=1,
+            expected_asset_digest="c" * 64,
+            observed_asset_digest="c" * 64,
+            expected_impact_count=1,
+            observed_impact_count=1,
+            expected_impact_digest="d" * 64,
+            observed_impact_digest="d" * 64,
+        ),
+    )
+    manifest = DeployedMetadataManifest(
+        target_id="arbitrum",
+        created_at_utc=datetime.now(UTC),
+        networks=[
+            DeployedNetworkObservation(
+                network="ethereum_l1",
+                rpc_env_var="ETHEREUM_RPC_URL",
+                expected_chain_id=1,
+                observed_chain_id=1,
+                block_number=123,
+                status="completed",
+            )
+        ],
+        contracts=[
+            DeployedContractObservation(
+                name="arb_one_bridge",
+                network="ethereum_l1",
+                address="0x" + "11" * 20,
+                role="canonical_native_bridge",
+                status="completed",
+                block_number=123,
+                bytecode_size=42,
+                bytecode_sha256="e" * 64,
+                proxy_kind="eip1967",
+                implementation_address="0x" + "22" * 20,
+            )
+        ],
+    )
+    monkeypatch.setattr(
+        "scbounty.cli.ScopeGate.verify",
+        lambda self, target: attestation,
+    )
+    monkeypatch.setattr(
+        "scbounty.cli.DeployedMetadataCollector.collect",
+        lambda self, target, **kwargs: manifest,
+    )
+
+    result = runner.invoke(app, ["source", "metadata", "arbitrum"])
+
+    assert result.exit_code == 0
+    assert "ethereum_l1" in result.stdout
+    assert "1 completed, 0 skipped, 0 failed" in result.stdout

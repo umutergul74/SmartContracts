@@ -58,6 +58,22 @@ class SourceRepository(StrictModel):
     analysis_paths: list[str] = Field(default_factory=list)
 
 
+class DeployedContractConfig(StrictModel):
+    name: str
+    network: str
+    address: str = Field(pattern=r"^0x[a-fA-F0-9]{40}$")
+    role: str
+    proxy_kind: Literal["auto", "eip1967", "none"] = "auto"
+    expected_source_repository: str | None = None
+    expected_source_path: str | None = None
+
+    @model_validator(mode="after")
+    def require_repository_for_expected_path(self) -> DeployedContractConfig:
+        if self.expected_source_path and not self.expected_source_repository:
+            raise ValueError("expected_source_path requires expected_source_repository")
+        return self
+
+
 class TargetConfig(StrictModel):
     target_id: str
     name: str
@@ -69,6 +85,7 @@ class TargetConfig(StrictModel):
     prohibited_testing: list[str] = Field(min_length=1)
     networks: dict[str, NetworkConfig] = Field(default_factory=dict)
     source_repositories: list[SourceRepository] = Field(default_factory=list)
+    deployed_contracts: list[DeployedContractConfig] = Field(default_factory=list)
     seed_in_scope_assets_from_immunefi_first_page: list[str] = Field(default_factory=list)
     seed_dao_addresses: dict[str, str] = Field(default_factory=dict)
     impact_categories_to_prioritize: dict[str, list[str]] = Field(default_factory=dict)
@@ -92,6 +109,29 @@ class TargetConfig(StrictModel):
                 raise ValueError(f"missing required prohibited methods: {sorted(missing)}")
             if not self.authorization.must_reverify_before_run:
                 raise ValueError("real targets must re-verify scope before every run")
+        repositories = {repository.name: repository for repository in self.source_repositories}
+        for contract in self.deployed_contracts:
+            if contract.network not in self.networks:
+                raise ValueError(
+                    f"deployed contract {contract.name} references unknown network "
+                    f"{contract.network}"
+                )
+            if contract.expected_source_repository is None:
+                continue
+            repository = repositories.get(contract.expected_source_repository)
+            if repository is None:
+                raise ValueError(
+                    f"deployed contract {contract.name} references unknown repository "
+                    f"{contract.expected_source_repository}"
+                )
+            if (
+                contract.expected_source_path is not None
+                and contract.expected_source_path not in repository.analysis_paths
+            ):
+                raise ValueError(
+                    f"deployed contract {contract.name} expected source is outside the "
+                    f"reviewed analysis paths: {contract.expected_source_path}"
+                )
         return self
 
 
@@ -238,6 +278,49 @@ class SourceManifest(StrictModel):
     target_id: str
     created_at_utc: datetime
     artifacts: list[SourceArtifact]
+
+
+class DeployedNetworkObservation(StrictModel):
+    network: str
+    rpc_env_var: str
+    expected_chain_id: int
+    observed_chain_id: int | None = None
+    block_number: int | None = None
+    status: Literal["completed", "skipped", "failed"]
+    warnings: list[str] = Field(default_factory=list)
+
+
+class DeployedContractObservation(StrictModel):
+    name: str
+    network: str
+    address: str
+    role: str
+    status: Literal["completed", "skipped", "failed"]
+    block_number: int | None = None
+    bytecode_size: int | None = None
+    bytecode_sha256: str | None = None
+    proxy_kind: Literal["eip1967", "eip1967_beacon", "none", "unknown"] = "unknown"
+    implementation_address: str | None = None
+    implementation_bytecode_size: int | None = None
+    implementation_bytecode_sha256: str | None = None
+    admin_address: str | None = None
+    beacon_address: str | None = None
+    beacon_bytecode_size: int | None = None
+    beacon_bytecode_sha256: str | None = None
+    expected_source_repository: str | None = None
+    expected_source_path: str | None = None
+    warnings: list[str] = Field(default_factory=list)
+
+
+class DeployedMetadataManifest(StrictModel):
+    schema_version: Literal["1"] = "1"
+    target_id: str
+    created_at_utc: datetime
+    local_static_only: Literal[True] = True
+    scope_snapshot_hash: str | None = None
+    scope_live_content_hash: str | None = None
+    networks: list[DeployedNetworkObservation]
+    contracts: list[DeployedContractObservation]
 
 
 class TriageRecord(StrictModel):

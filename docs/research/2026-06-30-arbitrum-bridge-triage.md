@@ -411,8 +411,8 @@ explicitly expanded**.
 
 ## Next research steps
 
-1. Add deployed-proxy metadata verification to the platform using read-only RPC
-   manifests rather than ad hoc research commands.
+1. Completed on 2026-07-02: add deployed-proxy metadata verification to the platform
+   using read-only RPC manifests rather than ad hoc research commands.
 2. Investigate retryable refund receiver flows specifically:
    - excess fee refund address
    - call value refund address
@@ -939,3 +939,76 @@ risk rather than an untrusted theft path.
 
 Current decision: **do not submit**. No unauthorized claim, release, sweep, or migration path was
 found.
+
+### Reviewed / not promoted: Classic outboxes still authorized by the current bridge
+
+Status: **source review plus block-pinned read-only live-state verification completed**.
+
+The current Arbitrum One bridge still authorizes three outboxes:
+
+- current outbox `0x0B9857ae2D4A3DBe74ffE1d7DF045bb7F96E4840`;
+- Classic outbox `0x667e23ABd27E623c11d4CC00ca3EC4d0bD63337a`;
+- Classic outbox `0x760723CD2e632826c38Fef8CD438A4CC7E7E1A40`.
+
+The two Classic outboxes both point to the old rollup
+`0xC12BA48c781F6e392B49Db2E25Cd0c28cD77531A` while executing withdrawals through
+the current bridge `0x8315177aB297bA92A06054cE80a67Ed4DBd7ed3a`. This initially looked
+dangerous: if an untrusted caller could make the old rollup publish a new arbitrary root, an
+allowed Classic outbox could call the current bridge with forged withdrawals.
+
+Read-only state and verified source close that path:
+
+- the old rollup is paused and in Nitro shutdown mode;
+- `shutdownForNitroBlock()` is `15447186`;
+- `latestConfirmed()` and `latestNodeCreated()` are both `3591`;
+- `firstUnresolvedNode()` is `3592`, and `getNode(3592)` is the zero address;
+- `stakerCount()` is zero;
+- its admin facet is `0x3CcB27FD59398a015a1eb465582A934fbF318214`;
+- its user facet is `0xDBE5c009095169D3de4a8D1C70E319fE647A3DBf`.
+
+The Classic user facet permits `confirmNextNode` during Nitro shutdown, but the function requires
+an unresolved node and a non-zero staker count. New stakes, movement to an existing unresolved
+node, and `stakeOnNewNode` remain protected by `whenNotPaused`. The admin facet has
+`forceConfirmNode` while paused, but the proxy dispatches the admin facet only when `msg.sender`
+is the rollup owner; all other callers reach the user facet. Both Classic outbox implementations
+also require `msg.sender == rollup` before processing outgoing messages.
+
+Arbitrum's contract-address documentation explicitly lists the two addresses as Classic outboxes
+for migrated networks, consistent with retaining them so historical Classic withdrawals remain
+executable:
+
+- `https://docs.arbitrum.io/arbitrum-essentials/reference/contract-addresses`
+- `https://github.com/OffchainLabs/arbitrum-classic/blob/master/packages/arb-bridge-eth/contracts/rollup/facets/RollupAdmin.sol`
+- `https://github.com/OffchainLabs/arbitrum-classic/blob/master/packages/arb-bridge-eth/contracts/rollup/facets/RollupUser.sol`
+
+Current decision: **do not submit**. The retained authorization is an intentional migration
+compatibility path, and no untrusted route to create or confirm another Classic send root was
+found.
+
+### Platform improvement: block-pinned deployed metadata manifests
+
+The platform now provides:
+
+```text
+scbounty source metadata arbitrum
+```
+
+The command re-runs the live scope gate, verifies RPC chain IDs, pins one block per configured
+network, and records deployed bytecode hashes plus EIP-1967 implementation, admin, and beacon
+metadata. Missing RPC endpoints produce structured skips. The RPC client exposes only
+`eth_chainId`, `eth_blockNumber`, `eth_getCode`, `eth_getStorageAt`, and `eth_call`; it has no
+transaction, signing, account, or broadcast method.
+
+The first complete live snapshot recorded:
+
+- scope hash `e22d5a917fa11afcd863cc070a994a640856bf66d82245c97c884d08f542d6ce`;
+- Ethereum block `25445242`;
+- Arbitrum One block `479635727`;
+- 19 completed contract observations;
+- zero skipped and zero failed observations;
+- artifact `artifacts/deployed/arbitrum/20260702T135202Z.json`.
+
+The manifest contains no HTTP URL. During the first live run, the generic HTTP client's INFO
+logger exposed the endpoint URL in terminal output. HTTP request logging is now disabled even in
+verbose mode, with a regression test ensuring token-bearing RPC URLs cannot be printed by that
+logger.

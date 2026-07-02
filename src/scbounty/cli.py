@@ -42,6 +42,7 @@ from scbounty.reporting.service import (
     resolve_run,
     triage_finding,
 )
+from scbounty.source.deployed import DeployedMetadataCollector
 from scbounty.source.fetcher import SourceFetcher, SourceFetchError
 from scbounty.targets.arbitrum import ARBITRUM_SCOPE_MESSAGE
 from scbounty.targets.registry import list_target_ids
@@ -217,6 +218,43 @@ def source_fetch(target_id: str) -> None:
             artifact.repository, artifact.commit_sha[:12], str(len(artifact.selected_paths))
         )
     console.print(table)
+    console.print(f"Manifest: {output}")
+
+
+@source_app.command("metadata")
+def source_metadata(target_id: str) -> None:
+    """Capture read-only deployed bytecode and EIP-1967 metadata."""
+    target = load_target(target_id)
+    timestamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
+    output = safe_child(artifacts_root(), "deployed", target_id, f"{timestamp}.json")
+    try:
+        attestation = ScopeGate().verify(target)
+        manifest = DeployedMetadataCollector().collect(
+            target,
+            output_path=output,
+            scope_snapshot_hash=attestation.snapshot_hash,
+            scope_live_content_hash=attestation.live_content_hash,
+        )
+    except ScopeVerificationError as exc:
+        console.print(f"[red]Deployed metadata refused:[/] {exc}")
+        raise typer.Exit(4) from exc
+
+    table = Table("Network", "Contract", "Status", "Code bytes", "Proxy", "Implementation")
+    for contract in manifest.contracts:
+        implementation = contract.implementation_address or "-"
+        table.add_row(
+            contract.network,
+            contract.name,
+            contract.status,
+            str(contract.bytecode_size) if contract.bytecode_size is not None else "-",
+            contract.proxy_kind,
+            implementation,
+        )
+    console.print(table)
+    completed = sum(contract.status == "completed" for contract in manifest.contracts)
+    skipped = sum(contract.status == "skipped" for contract in manifest.contracts)
+    failed = sum(contract.status == "failed" for contract in manifest.contracts)
+    console.print(f"Deployed metadata: {completed} completed, {skipped} skipped, {failed} failed")
     console.print(f"Manifest: {output}")
 
 

@@ -37,7 +37,8 @@ scbounty = "scbounty.cli:app"
 packages = ["src/scbounty"]
 
 [tool.pytest.ini_options]
-addopts = "-ra --strict-markers --basetemp=.testtmp"
+addopts = "-ra --strict-markers"
+cache_dir = ".scbounty/cache/pytest"
 testpaths = ["tests"]
 pythonpath = ["src"]
 markers = [

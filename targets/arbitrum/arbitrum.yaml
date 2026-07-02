@@ -61,6 +61,135 @@ networks:
     rpc_env_var: ARBITRUM_SEPOLIA_RPC_URL
     read_only: true
 
+deployed_contracts:
+  - name: arb_one_rollup_registry
+    network: ethereum_l1
+    address: "0xd514C2b3aaBDBfa10800B9C96dc1eB25427520A0"
+    role: canonical_rollup_address_registry
+    proxy_kind: auto
+  - name: arb_one_rollup
+    network: ethereum_l1
+    address: "0x4DCeB440657f21083db8aDd07665f8ddBe1DCfc0"
+    role: current_rollup_proxy_observed_from_registry
+    proxy_kind: eip1967
+    expected_source_repository: OffchainLabs/nitro-contracts
+    expected_source_path: src/rollup/RollupProxy.sol
+  - name: arb_one_bridge
+    network: ethereum_l1
+    address: "0x8315177aB297bA92A06054cE80a67Ed4DBd7ed3a"
+    role: canonical_native_bridge
+    proxy_kind: eip1967
+    expected_source_repository: OffchainLabs/nitro-contracts
+    expected_source_path: src/bridge/Bridge.sol
+  - name: arb_one_inbox
+    network: ethereum_l1
+    address: "0x4Dbd4fc535Ac27206064B68FfCf827b0A60BAB3f"
+    role: canonical_delayed_inbox
+    proxy_kind: eip1967
+    expected_source_repository: OffchainLabs/nitro-contracts
+    expected_source_path: src/bridge/Inbox.sol
+  - name: arb_one_sequencer_inbox
+    network: ethereum_l1
+    address: "0x1c479675ad559DC151F6Ec7ed3FbF8ceE79582B6"
+    role: canonical_sequencer_inbox
+    proxy_kind: eip1967
+    expected_source_repository: OffchainLabs/nitro-contracts
+    expected_source_path: src/bridge/SequencerInbox.sol
+  - name: arb_one_outbox
+    network: ethereum_l1
+    address: "0x0B9857ae2D4A3DBe74ffE1d7DF045bb7F96E4840"
+    role: current_withdrawal_outbox
+    proxy_kind: eip1967
+    expected_source_repository: OffchainLabs/nitro-contracts
+    expected_source_path: src/bridge/Outbox.sol
+  - name: arb_one_classic_outbox_v1
+    network: ethereum_l1
+    address: "0x667e23ABd27E623c11d4CC00ca3EC4d0bD63337a"
+    role: classic_withdrawal_compatibility_outbox
+    proxy_kind: eip1967
+  - name: arb_one_classic_outbox_v2
+    network: ethereum_l1
+    address: "0x760723CD2e632826c38Fef8CD438A4CC7E7E1A40"
+    role: classic_withdrawal_compatibility_outbox
+    proxy_kind: eip1967
+  - name: arb_one_l1_gateway_router
+    network: ethereum_l1
+    address: "0x72Ce9c846789fdB6fC1f34aC4AD25Dd9ef7031ef"
+    role: canonical_l1_token_gateway_router
+    proxy_kind: eip1967
+    expected_source_repository: OffchainLabs/token-bridge-contracts
+    expected_source_path: contracts/tokenbridge/ethereum/gateway/L1GatewayRouter.sol
+  - name: arb_one_l1_erc20_gateway
+    network: ethereum_l1
+    address: "0xa3A7B6F88361F48403514059F1F16C8E78d60EeC"
+    role: canonical_l1_standard_erc20_gateway
+    proxy_kind: eip1967
+    expected_source_repository: OffchainLabs/token-bridge-contracts
+    expected_source_path: contracts/tokenbridge/ethereum/gateway/L1ERC20Gateway.sol
+  - name: arb_one_l1_custom_gateway
+    network: ethereum_l1
+    address: "0xcEe284F754E854890e311e3280b767F80797180d"
+    role: canonical_l1_custom_token_gateway
+    proxy_kind: eip1967
+    expected_source_repository: OffchainLabs/token-bridge-contracts
+    expected_source_path: contracts/tokenbridge/ethereum/gateway/L1CustomGateway.sol
+  - name: arb_one_l1_weth_gateway
+    network: ethereum_l1
+    address: "0xd92023E9d9911199a6711321D1277285e6d4e2db"
+    role: canonical_l1_weth_gateway
+    proxy_kind: eip1967
+    expected_source_repository: OffchainLabs/token-bridge-contracts
+    expected_source_path: contracts/tokenbridge/ethereum/gateway/L1WethGateway.sol
+  - name: l1_arb_token
+    network: ethereum_l1
+    address: "0xB50721BCf8d664c30412Cfbc6cf7a15145234ad1"
+    role: l1_bridged_arb_token
+    proxy_kind: eip1967
+    expected_source_repository: ArbitrumFoundation/governance
+    expected_source_path: src/L1ArbitrumToken.sol
+  - name: arb_one_l2_gateway_router
+    network: arbitrum_one
+    address: "0x5288c571Fd7aD117beA99bF60FE0846C4E84F933"
+    role: canonical_l2_token_gateway_router
+    proxy_kind: eip1967
+    expected_source_repository: OffchainLabs/token-bridge-contracts
+    expected_source_path: contracts/tokenbridge/arbitrum/gateway/L2GatewayRouter.sol
+  - name: arb_one_l2_erc20_gateway
+    network: arbitrum_one
+    address: "0x09e9222E96E7B4AE2a407B98d48e330053351EEe"
+    role: canonical_l2_standard_erc20_gateway
+    proxy_kind: eip1967
+    expected_source_repository: OffchainLabs/token-bridge-contracts
+    expected_source_path: contracts/tokenbridge/arbitrum/gateway/L2ERC20Gateway.sol
+  - name: arb_one_l2_custom_gateway
+    network: arbitrum_one
+    address: "0x096760F208390250649E3e8763348E783AEF5562"
+    role: canonical_l2_custom_token_gateway
+    proxy_kind: eip1967
+    expected_source_repository: OffchainLabs/token-bridge-contracts
+    expected_source_path: contracts/tokenbridge/arbitrum/gateway/L2CustomGateway.sol
+  - name: arb_one_l2_weth_gateway
+    network: arbitrum_one
+    address: "0x6c411aD3E74De3E7Bd422b94A27770f5B86C623B"
+    role: canonical_l2_weth_gateway
+    proxy_kind: eip1967
+    expected_source_repository: OffchainLabs/token-bridge-contracts
+    expected_source_path: contracts/tokenbridge/arbitrum/gateway/L2WethGateway.sol
+  - name: arb_one_weth
+    network: arbitrum_one
+    address: "0x82aF49447D8a07e3bd95BD0d56f35241523fBab1"
+    role: canonical_l2_weth_token
+    proxy_kind: auto
+    expected_source_repository: OffchainLabs/token-bridge-contracts
+    expected_source_path: contracts/tokenbridge/libraries/aeWETH.sol
+  - name: arb_one_arb_token
+    network: arbitrum_one
+    address: "0x912CE59144191C1204E64559FE8253a0e49E6548"
+    role: canonical_l2_arb_token
+    proxy_kind: eip1967
+    expected_source_repository: ArbitrumFoundation/governance
+    expected_source_path: src/L2ArbitrumToken.sol
+
 source_repositories:
   - name: OffchainLabs/token-bridge-contracts
     url: https://github.com/OffchainLabs/token-bridge-contracts

@@ -11,6 +11,7 @@ vulnerability.
 
 - Fail-closed live comparison of the Arbitrum Immunefi scope against a reviewed snapshot.
 - Commit-pinned source acquisition for reviewed Offchain Labs repositories.
+- Block-pinned, read-only bytecode and EIP-1967 implementation/admin/beacon manifests.
 - Foundry, Slither, and Semgrep adapters with versioned, structured execution records.
 - Degraded mode when optional analyzers or read-only RPC URLs are absent.
 - Conservative bridge, gateway, cross-chain sender, accounting, upgrade, and gas detectors.
@@ -45,6 +46,7 @@ scbounty scope coverage arbitrum
 scbounty scope coverage arbitrum --format json --output artifacts/scope/arbitrum/coverage.json
 scbounty scope coverage arbitrum --format markdown --output artifacts/scope/arbitrum/coverage.md
 scbounty source fetch arbitrum
+scbounty source metadata arbitrum
 scbounty analyze arbitrum --safe
 ```
 
@@ -59,6 +61,7 @@ uv sync --extra dev
 scbounty env doctor
 scbounty scope check arbitrum
 scbounty scope coverage arbitrum
+scbounty source metadata arbitrum
 scbounty analyze arbitrum --safe
 ```
 
@@ -74,6 +77,7 @@ scbounty scope coverage arbitrum
 scbounty scope coverage arbitrum --format json --output artifacts/scope/arbitrum/coverage.json
 scbounty scope coverage arbitrum --format markdown --output artifacts/scope/arbitrum/coverage.md
 scbounty source fetch arbitrum
+scbounty source metadata arbitrum
 scbounty analyze arbitrum --safe
 scbounty analyze arbitrum --tool slither
 scbounty harness generate arbitrum --kind foundry

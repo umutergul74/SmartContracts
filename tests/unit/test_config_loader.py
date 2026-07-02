@@ -19,6 +19,11 @@ def test_arbitrum_config_loads_with_required_safety_boundaries() -> None:
     assert "src/bridge/SequencerInbox.sol" in nitro_paths
     assert "src/bridge/DelayBuffer.sol" in nitro_paths
     assert "src/libraries/MerkleLib.sol" in nitro_paths
+    deployed = {contract.name: contract for contract in target.deployed_contracts}
+    assert len(deployed) == 19
+    assert deployed["arb_one_bridge"].network == "ethereum_l1"
+    assert deployed["arb_one_bridge"].proxy_kind == "eip1967"
+    assert deployed["arb_one_l2_gateway_router"].network == "arbitrum_one"
 
 
 def test_scope_snapshot_is_complete_fingerprint() -> None:
