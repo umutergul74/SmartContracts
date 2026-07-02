@@ -41,6 +41,7 @@ uv sync --extra dev
 scbounty env doctor
 scbounty targets show arbitrum
 scbounty scope check arbitrum
+scbounty scope coverage arbitrum
 scbounty source fetch arbitrum
 scbounty analyze arbitrum --safe
 ```
@@ -55,6 +56,7 @@ uv sync --extra dev
 
 scbounty env doctor
 scbounty scope check arbitrum
+scbounty scope coverage arbitrum
 scbounty analyze arbitrum --safe
 ```
 
@@ -66,6 +68,7 @@ scbounty analyze arbitrum --safe
 scbounty targets list
 scbounty targets show arbitrum
 scbounty scope check arbitrum
+scbounty scope coverage arbitrum
 scbounty source fetch arbitrum
 scbounty analyze arbitrum --safe
 scbounty analyze arbitrum --tool slither
@@ -103,4 +106,3 @@ detectors require positive and negative fixtures. New external commands must use
 runner and must not introduce wallet, deployment, or transaction-broadcast capability.
 
 Licensed under Apache-2.0.
-

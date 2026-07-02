@@ -23,6 +23,11 @@ from scbounty.analyzers import (
 )
 from scbounty.analyzers.runner import AnalysisRunner
 from scbounty.config.loader import load_target
+from scbounty.config.scope_coverage import (
+    compare_target_scope_coverage,
+    latest_attestation_path,
+    load_scope_attestation,
+)
 from scbounty.config.scope_gate import ScopeGate, ScopeVerificationError
 from scbounty.harness.echidna_generator import generate_echidna_config
 from scbounty.harness.foundry_generator import generate_foundry_harness
@@ -105,6 +110,53 @@ def scope_check(target_id: str) -> None:
         console.print(f"[green]{ARBITRUM_SCOPE_MESSAGE}[/]")
     console.print(f"Attestation: {output}")
     console.print(f"Scope hash: {attestation.snapshot_hash}")
+
+
+@scope_app.command("coverage")
+def scope_coverage(
+    target_id: str,
+    attestation: Path | None = typer.Option(
+        None,
+        "--attestation",
+        exists=True,
+        dir_okay=False,
+        help="Scope attestation JSON. Defaults to the latest local attestation.",
+    ),
+) -> None:
+    target = load_target(target_id)
+    try:
+        attestation_path = attestation or latest_attestation_path(target_id)
+        scope_attestation = load_scope_attestation(attestation_path)
+    except (FileNotFoundError, ValueError) as exc:
+        console.print(f"[red]Scope coverage refused:[/] {exc}")
+        raise typer.Exit(3) from exc
+
+    coverage = compare_target_scope_coverage(target, scope_attestation)
+    table = Table("Repository", "Live assets", "Configured paths", "Exact matches")
+    for repository, counts in coverage.repositories.items():
+        observed_count, configured_count, exact_count = counts
+        table.add_row(
+            repository,
+            str(observed_count),
+            str(configured_count),
+            str(exact_count),
+        )
+    console.print(table)
+    console.print(f"Attestation: {attestation_path}")
+    console.print(
+        "Summary: "
+        f"{coverage.exact_match_count}/{coverage.github_blob_asset_count} GitHub blob assets "
+        f"are selected by this target profile "
+        f"({coverage.observed_asset_count} total observed scope assets); "
+        f"{len(coverage.configured_not_observed)} configured paths are not in the "
+        "observed live scope."
+    )
+    if coverage.observed_not_configured:
+        console.print("[yellow]Live assets outside this analysis profile:[/]")
+        for key in coverage.observed_not_configured[:20]:
+            console.print(f"- {key.repository}/{key.path}")
+        if len(coverage.observed_not_configured) > 20:
+            console.print(f"... plus {len(coverage.observed_not_configured) - 20} more")
 
 
 @source_app.command("fetch")
